@@ -1,0 +1,26 @@
+/* Current track info styling */
+.current-track-info {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.current-track-image {
+  width: 8rem;
+  height: 8rem;
+  border-radius: 0.5rem;
+  margin-right: 1rem;
+}
+
+.current-track-title {
+  font-size: 1.25rem;
+  font-weight: bold;
+}
+
+.current-track-artist {
+  color: #a0aec0; /* text-gray-400 */
+}
+
+.current-track-album {
+  color: #718096; /* text-gray-500 */
+}

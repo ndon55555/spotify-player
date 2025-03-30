@@ -1,0 +1,25 @@
+/* Playback controls styling */
+.playback-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.play-pause-button {
+  background-color: var(--spotify-green);
+  color: white;
+  border-radius: 9999px;
+  padding: 1rem;
+  margin: 0 0.5rem;
+  transition: background-color 0.2s;
+}
+
+.play-pause-button:hover {
+  background-color: #1aa34a; /* hover:bg-green-600 */
+}
+
+.play-pause-icon {
+  height: 2rem;
+  width: 2rem;
+}

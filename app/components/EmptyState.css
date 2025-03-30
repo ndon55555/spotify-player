@@ -1,0 +1,11 @@
+/* Empty state styling */
+.empty-state {
+  text-align: center;
+  padding: 2rem 0;
+  color: #a0aec0; /* text-gray-400 */
+}
+
+.empty-state-subtitle {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+}

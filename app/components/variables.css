@@ -1,0 +1,35 @@
+/* CSS Variables for Spotify Player Components */
+
+:root {
+  /* Colors */
+  --background: #121212;
+  --foreground: #ffffff;
+  --spotify-green: #1DB954;
+  --spotify-green-hover: #1aa34a;
+  --card-bg: #181818;
+  --hover-bg: #282828;
+  --text-secondary: #a0aec0; /* text-gray-400 */
+  --text-tertiary: #718096; /* text-gray-500 */
+  
+  /* Spacing */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  
+  /* Border radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-full: 9999px;
+  
+  /* Font sizes */
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  
+  /* Transitions */
+  --transition-default: 0.2s;
+}

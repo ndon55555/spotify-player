@@ -1,0 +1,110 @@
+/* Main container with responsive padding and max width */
+.web-playback-container {
+  margin: 0 auto;
+  padding: 1rem;
+  max-width: 72rem; /* equivalent to max-w-6xl */
+}
+
+/* Header section with logout button */
+.header-section {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+
+/* Logout button styling */
+.logout-button {
+  background-color: var(--card-bg);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 9999px; /* rounded-full */
+  font-size: 0.875rem; /* text-sm */
+  transition: background-color 0.2s;
+}
+
+.logout-button:hover {
+  background-color: var(--hover-bg);
+}
+
+/* Info/error message styling */
+.info-message {
+  background-color: rgba(30, 58, 138, 0.5); /* bg-blue-900/50 */
+  color: white;
+  padding: 1rem;
+  border-radius: 0.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.info-message-title {
+  font-weight: bold;
+  font-size: 1.125rem;
+  margin-bottom: 0.5rem;
+}
+
+.info-message-link {
+  text-decoration: underline;
+  font-weight: bold;
+}
+
+.error-message {
+  background-color: rgba(127, 29, 29, 0.5); /* bg-red-900/50 */
+  color: white;
+  padding: 0.75rem;
+  border-radius: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+/* Main grid layout */
+.player-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .player-grid {
+    grid-template-columns: 1fr 2fr;
+  }
+}
+
+/* Playlist section styling */
+.playlist-section {
+  background-color: var(--card-bg);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.section-title {
+  font-size: 1.25rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+}
+
+/* Playlist scrollable container */
+.playlist-scroll-container {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+/* Main player section */
+.player-section {
+  background-color: var(--card-bg);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+/* Track list section */
+.track-list-section {
+  margin-top: 1.5rem;
+}
+
+.track-list-title {
+  font-size: 1.125rem;
+  font-weight: bold;
+  margin-bottom: 0.75rem;
+}
+
+.track-list-container {
+  max-height: 300px;
+  overflow-y: auto;
+}

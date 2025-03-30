@@ -1,0 +1,53 @@
+/* Track item styling */
+.track-item {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.track-item:hover {
+  background-color: var(--hover-bg);
+}
+
+.track-item.active {
+  background-color: var(--hover-bg);
+}
+
+.track-image {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.25rem;
+  margin-right: 0.75rem;
+}
+
+.track-image-placeholder {
+  width: 2.5rem;
+  height: 2.5rem;
+  background-color: #4a5568; /* bg-gray-700 */
+  border-radius: 0.25rem;
+  margin-right: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.track-placeholder-icon {
+  height: 1.5rem;
+  width: 1.5rem;
+}
+
+.track-info {
+  flex-grow: 1;
+}
+
+.track-name {
+  font-weight: 500;
+}
+
+.track-artist {
+  font-size: 0.875rem;
+  color: #a0aec0; /* text-gray-400 */
+}

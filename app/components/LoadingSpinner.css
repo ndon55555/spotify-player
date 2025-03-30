@@ -1,0 +1,24 @@
+/* Loading spinner styling */
+.loading-spinner-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 10rem;
+}
+
+.loading-spinner {
+  animation: spin 1s linear infinite;
+  border-radius: 9999px;
+  height: 3rem;
+  width: 3rem;
+  border-top: 2px solid var(--spotify-green);
+  border-bottom: 2px solid var(--spotify-green);
+  border-left: 2px transparent;
+  border-right: 2px transparent;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

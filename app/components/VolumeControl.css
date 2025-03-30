@@ -1,0 +1,42 @@
+/* Volume control styling */
+.volume-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.volume-icon {
+  height: 1.5rem;
+  width: 1.5rem;
+  margin-right: 0.5rem;
+}
+
+.volume-slider {
+  width: 12rem;
+  height: 0.5rem;
+  background-color: #4a5568; /* bg-gray-700 */
+  border-radius: 0.25rem;
+  appearance: none;
+  cursor: pointer;
+}
+
+/* Custom styles for the volume slider */
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: white;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.volume-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: white;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
