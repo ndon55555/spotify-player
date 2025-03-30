@@ -9,6 +9,11 @@ export async function GET() {
         "streaming", 
         "user-read-email", 
         "user-read-private",
+        "playlist-read-private",
+        "playlist-read-collaborative",
+        "user-modify-playback-state",
+        "user-read-playback-state",
+        "user-library-read"
     ];
     const scope = scopes.join(" ");
     const state = uuidv4();
