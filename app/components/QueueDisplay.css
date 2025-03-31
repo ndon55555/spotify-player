@@ -1,0 +1,23 @@
+.queue-display {
+  margin-top: 1.5rem;
+  background-color: var(--card-bg);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.queue-title {
+  font-size: 1.125rem;
+  font-weight: bold;
+  margin-bottom: 0.75rem;
+}
+
+.queue-empty-message {
+  color: var(--text-secondary);
+  font-style: italic;
+  padding: 0.5rem 0;
+}
+
+.queue-tracks-container {
+  max-height: 200px;
+  overflow-y: auto;
+}

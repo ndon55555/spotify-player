@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './MainWebPlayback.css';
-import { SpotifyTrack, SpotifyPlaylist, PlaybackState } from './types';
+import { SpotifyTrack, SpotifyPlaylist, PlaybackState, adaptTrackToSpotifyTrack, QueueTrack } from './types';
 import PlaylistItem from './PlaylistItem';
 import TrackItem from './TrackItem';
 import LoadingSpinner from './LoadingSpinner';
@@ -9,6 +9,7 @@ import PlaybackControls from './PlaybackControls';
 import VolumeControl from './VolumeControl';
 import CurrentTrackInfo from './CurrentTrackInfo';
 import ActivePlaylistHeader from './ActivePlaylistHeader';
+import QueueDisplay from './QueueDisplay';
 
 // Define interface for playlist position
 interface PlaylistPosition {
@@ -528,7 +529,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
 
           {/* Current Track Info */}
           {playbackState?.track_window.current_track && (
-            <CurrentTrackInfo track={playbackState.track_window.current_track} />
+            <CurrentTrackInfo track={adaptTrackToSpotifyTrack(playbackState.track_window.current_track)} />
           )}
 
           {/* Playback Controls */}
@@ -538,6 +539,14 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
 
           {/* Volume Control */}
           <VolumeControl volume={volume} onVolumeChange={handleVolumeChange} />
+
+          {/* Queue Display */}
+          {playbackState?.track_window.next_tracks && playbackState.track_window.next_tracks.length > 0 && (
+            <QueueDisplay 
+              nextTracks={playbackState.track_window.next_tracks} 
+              onPlay={playTrack} 
+            />
+          )}
 
           {/* Track List */}
           <div className="track-list-section">
@@ -554,7 +563,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
                     <TrackItem
                       key={track.id}
                       track={track}
-                      isActive={playbackState?.track_window.current_track.id === track.id}
+                      isActive={playbackState?.track_window.current_track?.id === track.id}
                       onPlay={playTrack}
                       index={index + 1}
                     />
