@@ -6,18 +6,20 @@ interface TrackItemProps {
     track: SpotifyTrack;
     isActive: boolean;
     onPlay: (trackUri: string) => void;
+    index: number; // Track index in the playlist (1-based)
 }
 
 /**
  * TrackItem component displays a single track with its album image, name, and artists
  * It handles the click event to play the track
  */
-const TrackItem: React.FC<TrackItemProps> = ({ track, isActive, onPlay }) => {
+const TrackItem: React.FC<TrackItemProps> = ({ track, isActive, onPlay, index }) => {
     return (
         <div 
             className={`track-item ${isActive ? 'active' : ''}`}
             onClick={() => onPlay(track.uri)}
         >
+            <div className="track-number">{index}</div>
             {track.album.images && track.album.images.length > 0 ? (
                 <img 
                     src={track.album.images[0].url} 

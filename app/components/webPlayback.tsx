@@ -39,6 +39,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = (props) => {
     const [isLoadingTracks, setIsLoadingTracks] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const [userId, setUserId] = useState<string>('');
+    const trackListContainerRef = useRef<HTMLDivElement>(null);
     
     // Fetch the current user's profile to get the user ID
     const fetchUserProfile = async () => {
@@ -186,12 +187,12 @@ const WebPlayback: React.FC<WebPlaybackProps> = (props) => {
         }
     };
 
-    // Fetch tracks for a playlist
-    const fetchPlaylistTracks = async (playlistId: string) => {
-        setIsLoadingTracks(true);
-        setError(null);
+    // Fetch all tracks for a playlist recursively
+    const fetchAllPlaylistTracks = async (playlistId: string, url: string | null = null): Promise<SpotifyTrack[]> => {
         try {
-            const response = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
+            const fetchUrl = url || `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=50`;
+            
+            const response = await fetch(fetchUrl, {
                 headers: {
                     'Authorization': `Bearer ${props.token}`
                 }
@@ -202,14 +203,41 @@ const WebPlayback: React.FC<WebPlaybackProps> = (props) => {
             }
             
             const data = await response.json();
+            let tracks: SpotifyTrack[] = [];
+            
             if (data.items) {
-                const tracks = data.items.map((item: { track: SpotifyTrack }) => item.track).filter(Boolean);
-                setPlaylistTracks(tracks);
-                console.log('Tracks loaded:', tracks.length);
-            } else {
-                console.log('No tracks found in response:', data);
-                setPlaylistTracks([]);
+                tracks = data.items.map((item: { track: SpotifyTrack }) => item.track).filter(Boolean);
+                
+                // If there are more tracks, fetch them recursively
+                if (data.next) {
+                    const nextTracks = await fetchAllPlaylistTracks(playlistId, data.next);
+                    tracks = [...tracks, ...nextTracks];
+                }
             }
+            
+            return tracks;
+        } catch (error) {
+            console.error('Error fetching all playlist tracks:', error);
+            throw error;
+        }
+    };
+
+    // Fetch tracks for a playlist
+    const fetchPlaylistTracks = async (playlistId: string) => {
+        setIsLoadingTracks(true);
+        setPlaylistTracks([]);
+        setError(null);
+        
+        try {
+            // Fetch all tracks at once
+            const allTracks = await fetchAllPlaylistTracks(playlistId);
+            
+            setPlaylistTracks(allTracks);
+            console.log('All tracks loaded:', allTracks.length);
+            
+            // No need to track next URL or hasMoreTracks since we load everything
+            setHasMoreTracks(false);
+            setTracksNextUrl(null);
         } catch (error) {
             console.error('Error fetching playlist tracks:', error);
             setError('Failed to load tracks. Please try again.');
@@ -305,6 +333,21 @@ const WebPlayback: React.FC<WebPlaybackProps> = (props) => {
             fetchUserProfile();
         }
     }, [props.token]);
+    
+    // Effect to scroll to the active track when playlist changes or tracks are loaded
+    useEffect(() => {
+        if (playlistTracks.length > 0 && playbackState && trackListContainerRef.current) {
+            // Find the active track element
+            const activeTrackId = playbackState.track_window.current_track.id;
+            if (activeTrackId) {
+                const activeTrackElement = trackListContainerRef.current.querySelector(`.track-item.active`);
+                if (activeTrackElement) {
+                    // Scroll to the active track with a small offset to show some context
+                    activeTrackElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+        }
+    }, [activePlaylist, playlistTracks.length]);
 
     useEffect(() => {
         // Check if script already exists
@@ -502,16 +545,24 @@ const WebPlayback: React.FC<WebPlaybackProps> = (props) => {
                         ) : playlistTracks.length === 0 ? (
                             <EmptyState message="No tracks found in this playlist." />
                         ) : (
-                            <div className="track-list-container">
-                                {playlistTracks.map(track => (
-                                    <TrackItem 
-                                        key={track.id}
-                                        track={track}
-                                        isActive={playbackState?.track_window.current_track.id === track.id}
-                                        onPlay={playTrack}
-                                    />
-                                ))}
-                            </div>
+                            <>
+                                <div 
+                                    className="track-list-container"
+                                    ref={trackListContainerRef}
+                                >
+                                    {playlistTracks.map((track, index) => (
+                                        <TrackItem 
+                                            key={track.id}
+                                            track={track}
+                                            isActive={playbackState?.track_window.current_track.id === track.id}
+                                            onPlay={playTrack}
+                                            index={index + 1}
+                                        />
+                                    ))}
+                                    
+                                </div>
+                                
+                            </>
                         )}
                     </div>
                 </div>

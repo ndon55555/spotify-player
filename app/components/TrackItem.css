@@ -8,6 +8,16 @@
   transition: background-color 0.2s;
 }
 
+/* Track number styling */
+.track-number {
+  min-width: 2rem;
+  text-align: right;
+  margin-right: 0.75rem;
+  color: #a0aec0; /* text-gray-400 */
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .track-item:hover {
   background-color: var(--hover-bg);
 }
