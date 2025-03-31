@@ -10,6 +10,16 @@ import VolumeControl from './VolumeControl';
 import CurrentTrackInfo from './CurrentTrackInfo';
 import ActivePlaylistHeader from './ActivePlaylistHeader';
 
+// Define interface for playlist position
+interface PlaylistPosition {
+  id: number;
+  userId: string;
+  playlistId: string;
+  trackId: string;
+  position: number;
+  updatedAt: string;
+}
+
 interface WebPlaybackProps {
     token: string;
 }
@@ -28,7 +38,104 @@ const WebPlayback: React.FC<WebPlaybackProps> = (props) => {
     const [isLoadingPlaylists, setIsLoadingPlaylists] = useState<boolean>(false);
     const [isLoadingTracks, setIsLoadingTracks] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
+    const [userId, setUserId] = useState<string>('');
     
+    // Fetch the current user's profile to get the user ID
+    const fetchUserProfile = async () => {
+        try {
+            const response = await fetch('https://api.spotify.com/v1/me', {
+                headers: {
+                    'Authorization': `Bearer ${props.token}`
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            setUserId(data.id);
+            console.log('User ID:', data.id);
+            return data.id;
+        } catch (error) {
+            console.error('Error fetching user profile:', error);
+            setError('Failed to load user profile. Please try again.');
+            return null;
+        }
+    };
+
+    // Save the current playlist position
+    const savePlaylistPosition = async (playlistId: string, trackId: string, position: number): Promise<PlaylistPosition | null> => {
+        if (!userId) return null;
+        
+        try {
+            const response = await fetch('/api/playlist-positions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    userId,
+                    playlistId,
+                    trackId,
+                    position,
+                }),
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+            
+            const savedPosition: PlaylistPosition = await response.json();
+            console.log(`Saved position for playlist ${playlistId}: track ${trackId} at position ${position}`);
+            return savedPosition;
+        } catch (error) {
+            console.error('Error saving playlist position:', error);
+            return null;
+        }
+    };
+
+    // Load the saved position for a playlist
+    const loadPlaylistPosition = async (playlistId: string): Promise<PlaylistPosition | null> => {
+        if (!userId || !deviceId) return null;
+        
+        try {
+            const response = await fetch(`/api/playlist-positions?userId=${userId}&playlistId=${playlistId}`);
+            
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+            
+            const savedPosition: PlaylistPosition | null = await response.json();
+            
+            if (savedPosition) {
+                console.log(`Loaded position for playlist ${playlistId}: track ${savedPosition.trackId} at position ${savedPosition.position}`);
+                
+                // Play the track at the saved position
+                await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${props.token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        context_uri: `spotify:playlist:${playlistId}`,
+                        offset: {
+                            uri: `spotify:track:${savedPosition.trackId}`
+                        },
+                        position_ms: savedPosition.position
+                    })
+                });
+                
+                return savedPosition;
+            }
+        } catch (error) {
+            console.error('Error loading playlist position:', error);
+        }
+        
+        return null;
+    };
+
     // Fetch user's playlists
     const fetchPlaylists = async () => {
         setIsLoadingPlaylists(true);
@@ -51,8 +158,22 @@ const WebPlayback: React.FC<WebPlaybackProps> = (props) => {
                 
                 // Set first playlist as active if none is selected
                 if (data.items.length > 0 && !activePlaylist) {
-                    setActivePlaylist(data.items[0]);
-                    fetchPlaylistTracks(data.items[0].id);
+                    const firstPlaylist = data.items[0];
+                    setActivePlaylist(firstPlaylist);
+                    fetchPlaylistTracks(firstPlaylist.id);
+                    
+                    // Try to load saved position for the first playlist
+                    if (userId) {
+                        loadPlaylistPosition(firstPlaylist.id).then(savedPosition => {
+                            if (!savedPosition) {
+                                // If no saved position, just play from the beginning
+                                playPlaylist(firstPlaylist.uri);
+                            }
+                        });
+                    } else {
+                        // If no user ID yet, just play from the beginning
+                        playPlaylist(firstPlaylist.uri);
+                    }
                 }
             } else {
                 console.log('No playlists found in response:', data);
@@ -82,7 +203,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = (props) => {
             
             const data = await response.json();
             if (data.items) {
-                const tracks = data.items.map((item: any) => item.track).filter(Boolean);
+                const tracks = data.items.map((item: { track: SpotifyTrack }) => item.track).filter(Boolean);
                 setPlaylistTracks(tracks);
                 console.log('Tracks loaded:', tracks.length);
             } else {
@@ -153,11 +274,37 @@ const WebPlayback: React.FC<WebPlaybackProps> = (props) => {
     };
 
     // Handle playlist selection
-    const handlePlaylistSelect = (playlist: SpotifyPlaylist) => {
+    const handlePlaylistSelect = async (playlist: SpotifyPlaylist) => {
+        // If we have an active playlist, save its position before switching
+        if (activePlaylist && playbackState && userId) {
+            const currentTrack = playbackState.track_window.current_track;
+            if (currentTrack && currentTrack.id) {
+                await savePlaylistPosition(
+                    activePlaylist.id,
+                    currentTrack.id,
+                    playbackState.position
+                );
+            }
+        }
+        
         setActivePlaylist(playlist);
         fetchPlaylistTracks(playlist.id);
-        playPlaylist(playlist.uri);
+        
+        // Try to load saved position for the selected playlist
+        const savedPosition = await loadPlaylistPosition(playlist.id);
+        
+        // If no saved position, just play the playlist from the beginning
+        if (!savedPosition) {
+            playPlaylist(playlist.uri);
+        }
     };
+
+    // Effect to fetch user profile when component mounts
+    useEffect(() => {
+        if (props.token) {
+            fetchUserProfile();
+        }
+    }, [props.token]);
 
     useEffect(() => {
         // Check if script already exists
@@ -199,7 +346,24 @@ const WebPlayback: React.FC<WebPlaybackProps> = (props) => {
             // Player state changed
             player.addListener('player_state_changed', (state) => {
                 if (state) {
-                    setPlaybackState(state as unknown as PlaybackState);
+                    const newState = state as unknown as PlaybackState;
+                    setPlaybackState(newState);
+                    
+                    // Save position periodically when playing a track
+                    if (activePlaylist && userId && newState.track_window.current_track.id) {
+                        // Save position every 10 seconds or when paused
+                        const shouldSave = newState.paused || 
+                            !playbackState || 
+                            Math.abs(newState.position - playbackState.position) > 10000;
+                            
+                        if (shouldSave) {
+                            savePlaylistPosition(
+                                activePlaylist.id,
+                                newState.track_window.current_track.id,
+                                newState.position
+                            );
+                        }
+                    }
                 }
             });
 
