@@ -13,9 +13,12 @@ interface PlaylistItemProps {
  * It handles the click event to select the playlist
  */
 const PlaylistItem: React.FC<PlaylistItemProps> = ({ playlist, isActive, onSelect }) => {
+  // Ensure images array exists and has items before accessing
+  const hasImages = playlist.images && playlist.images.length > 0;
+
   return (
     <div className={`playlist-item ${isActive ? 'active' : ''}`} onClick={() => onSelect(playlist)}>
-      {playlist.images.length > 0 && (
+      {hasImages && (
         <img src={playlist.images[0].url} alt={playlist.name} className="playlist-image" />
       )}
       <span className="playlist-name">{playlist.name}</span>

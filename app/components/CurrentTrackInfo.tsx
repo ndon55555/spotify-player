@@ -11,9 +11,15 @@ interface CurrentTrackInfoProps {
  * Shows album artwork, track name, artist names, and album name
  */
 const CurrentTrackInfo: React.FC<CurrentTrackInfoProps> = ({ track }) => {
+  // Ensure we have album images before trying to access them
+  const albumImageUrl =
+    track.album.images && track.album.images.length > 0 ? track.album.images[0].url : '';
+
   return (
     <div className="current-track-info">
-      <img src={track.album.images[0].url} alt={track.name} className="current-track-image" />
+      {albumImageUrl && (
+        <img src={albumImageUrl} alt={track.name} className="current-track-image" />
+      )}
       <div>
         <h3 className="current-track-title">{track.name}</h3>
         <p className="current-track-artist">

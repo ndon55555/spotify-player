@@ -247,10 +247,6 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
 
       setPlaylistTracks(allTracks);
       console.log('All tracks loaded:', allTracks.length);
-
-      // No need to track next URL or hasMoreTracks since we load everything
-      setHasMoreTracks(false);
-      setTracksNextUrl(null);
     } catch (error) {
       console.error('Error fetching playlist tracks:', error);
       setError('Failed to load tracks. Please try again.');

@@ -11,9 +11,12 @@ interface ActivePlaylistHeaderProps {
  * Shows playlist artwork and name
  */
 const ActivePlaylistHeader: React.FC<ActivePlaylistHeaderProps> = ({ playlist }) => {
+  // Ensure images array exists and has items before accessing
+  const hasImages = playlist.images && playlist.images.length > 0;
+
   return (
     <div className="active-playlist-header">
-      {playlist.images.length > 0 && (
+      {hasImages && (
         <img src={playlist.images[0].url} alt={playlist.name} className="active-playlist-image" />
       )}
       <div>

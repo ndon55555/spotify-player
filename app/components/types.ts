@@ -1,26 +1,15 @@
 /**
- * Common type definitions for the Spotify player components
+ * Type definitions for the Spotify player components using @types/spotify-api
  */
 
-export interface SpotifyTrack {
-  id: string | null;
-  name: string;
-  album: {
-    id: string | null;
-    name: string;
-    images: { url: string }[];
-  };
-  artists: { name: string }[];
-  uri: string;
-}
+/// <reference types="spotify-api" />
 
-export interface SpotifyPlaylist {
-  id: string;
-  name: string;
-  images: { url: string }[];
-  uri: string;
-}
+// Use the Spotify API types directly
+export type SpotifyTrack = SpotifyApi.TrackObjectFull;
+export type SpotifyPlaylist = SpotifyApi.PlaylistObjectFull;
 
+// PlaybackState doesn't have a direct equivalent in the Spotify API types
+// This interface represents the state returned by the Spotify Web Playback SDK
 export interface PlaybackState {
   paused: boolean;
   position: number;
