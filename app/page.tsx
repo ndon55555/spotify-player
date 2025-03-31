@@ -1,8 +1,8 @@
-'use client'
+'use client';
 
-import { useEffect, useState } from "react";
-import Login from "./components/login";
-import WebPlayback from "./components/webPlayback";
+import { useEffect, useState } from 'react';
+import Login from './components/login';
+import WebPlayback from './components/webPlayback';
 
 const Home: React.FC = () => {
   const [token, setToken] = useState<string | undefined>(undefined);
@@ -17,11 +17,7 @@ const Home: React.FC = () => {
     getToken();
   }, []);
 
-  return (
-    <>
-      {token === undefined ? <Login /> : <WebPlayback token={token} />}
-    </>
-  );
-}
+  return <>{token === undefined ? <Login /> : <WebPlayback token={token} />}</>;
+};
 
 export default Home;

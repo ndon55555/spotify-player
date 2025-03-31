@@ -10,22 +10,14 @@ export const playlistPositionService = {
   /**
    * Save the current position in a playlist for a user
    */
-  async savePosition(
-    userId: string,
-    playlistId: string,
-    trackId: string,
-    position: number
-  ) {
+  async savePosition(userId: string, playlistId: string, trackId: string, position: number) {
     try {
       // Check if a record already exists for this user and playlist
       const existingPosition = await db
         .select()
         .from(playlistPositions)
         .where(
-          and(
-            eq(playlistPositions.userId, userId),
-            eq(playlistPositions.playlistId, playlistId)
-          )
+          and(eq(playlistPositions.userId, userId), eq(playlistPositions.playlistId, playlistId))
         )
         .limit(1);
 
@@ -39,10 +31,7 @@ export const playlistPositionService = {
             updatedAt: new Date(),
           })
           .where(
-            and(
-              eq(playlistPositions.userId, userId),
-              eq(playlistPositions.playlistId, playlistId)
-            )
+            and(eq(playlistPositions.userId, userId), eq(playlistPositions.playlistId, playlistId))
           )
           .returning();
       } else {
@@ -72,10 +61,7 @@ export const playlistPositionService = {
         .select()
         .from(playlistPositions)
         .where(
-          and(
-            eq(playlistPositions.userId, userId),
-            eq(playlistPositions.playlistId, playlistId)
-          )
+          and(eq(playlistPositions.userId, userId), eq(playlistPositions.playlistId, playlistId))
         )
         .limit(1);
 
@@ -94,10 +80,7 @@ export const playlistPositionService = {
       return await db
         .delete(playlistPositions)
         .where(
-          and(
-            eq(playlistPositions.userId, userId),
-            eq(playlistPositions.playlistId, playlistId)
-          )
+          and(eq(playlistPositions.userId, userId), eq(playlistPositions.playlistId, playlistId))
         )
         .returning();
     } catch (error) {

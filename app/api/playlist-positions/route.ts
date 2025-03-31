@@ -11,10 +11,7 @@ export async function GET(request: NextRequest) {
   const playlistId = searchParams.get('playlistId');
 
   if (!userId || !playlistId) {
-    return NextResponse.json(
-      { error: 'Missing userId or playlistId' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'Missing userId or playlistId' }, { status: 400 });
   }
 
   try {
@@ -22,10 +19,7 @@ export async function GET(request: NextRequest) {
       .select()
       .from(playlistPositions)
       .where(
-        and(
-          eq(playlistPositions.userId, userId),
-          eq(playlistPositions.playlistId, playlistId)
-        )
+        and(eq(playlistPositions.userId, userId), eq(playlistPositions.playlistId, playlistId))
       )
       .limit(1);
 
@@ -36,10 +30,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(position[0]);
   } catch (error) {
     console.error('Error getting playlist position:', error);
-    return NextResponse.json(
-      { error: 'Failed to get playlist position' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to get playlist position' }, { status: 500 });
   }
 }
 
@@ -50,10 +41,7 @@ export async function POST(request: NextRequest) {
     const { userId, playlistId, trackId, position } = body;
 
     if (!userId || !playlistId || !trackId || position === undefined) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     // Check if a record already exists
@@ -61,10 +49,7 @@ export async function POST(request: NextRequest) {
       .select()
       .from(playlistPositions)
       .where(
-        and(
-          eq(playlistPositions.userId, userId),
-          eq(playlistPositions.playlistId, playlistId)
-        )
+        and(eq(playlistPositions.userId, userId), eq(playlistPositions.playlistId, playlistId))
       )
       .limit(1);
 
@@ -79,10 +64,7 @@ export async function POST(request: NextRequest) {
           updatedAt: new Date(),
         })
         .where(
-          and(
-            eq(playlistPositions.userId, userId),
-            eq(playlistPositions.playlistId, playlistId)
-          )
+          and(eq(playlistPositions.userId, userId), eq(playlistPositions.playlistId, playlistId))
         )
         .returning();
     } else {
@@ -101,10 +83,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result[0]);
   } catch (error) {
     console.error('Error saving playlist position:', error);
-    return NextResponse.json(
-      { error: 'Failed to save playlist position' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to save playlist position' }, { status: 500 });
   }
 }
 
@@ -115,29 +94,20 @@ export async function DELETE(request: NextRequest) {
   const playlistId = searchParams.get('playlistId');
 
   if (!userId || !playlistId) {
-    return NextResponse.json(
-      { error: 'Missing userId or playlistId' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'Missing userId or playlistId' }, { status: 400 });
   }
 
   try {
     const result = await db
       .delete(playlistPositions)
       .where(
-        and(
-          eq(playlistPositions.userId, userId),
-          eq(playlistPositions.playlistId, playlistId)
-        )
+        and(eq(playlistPositions.userId, userId), eq(playlistPositions.playlistId, playlistId))
       )
       .returning();
 
     return NextResponse.json(result);
   } catch (error) {
     console.error('Error deleting playlist position:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete playlist position' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to delete playlist position' }, { status: 500 });
   }
 }

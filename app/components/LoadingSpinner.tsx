@@ -6,11 +6,11 @@ import './LoadingSpinner.css';
  * Used to indicate loading states throughout the application
  */
 const LoadingSpinner: React.FC = () => {
-    return (
-        <div className="loading-spinner-container">
-            <div className="loading-spinner"></div>
-        </div>
-    );
+  return (
+    <div className="loading-spinner-container">
+      <div className="loading-spinner"></div>
+    </div>
+  );
 };
 
 export default LoadingSpinner;

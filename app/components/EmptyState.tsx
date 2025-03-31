@@ -2,8 +2,8 @@ import React from 'react';
 import './EmptyState.css';
 
 interface EmptyStateProps {
-    message: string;
-    subMessage?: string;
+  message: string;
+  subMessage?: string;
 }
 
 /**
@@ -11,12 +11,12 @@ interface EmptyStateProps {
  * Used for empty playlists, tracks, or other content areas
  */
 const EmptyState: React.FC<EmptyStateProps> = ({ message, subMessage }) => {
-    return (
-        <div className="empty-state">
-            <p>{message}</p>
-            {subMessage && <p className="empty-state-subtitle">{subMessage}</p>}
-        </div>
-    );
+  return (
+    <div className="empty-state">
+      <p>{message}</p>
+      {subMessage && <p className="empty-state-subtitle">{subMessage}</p>}
+    </div>
+  );
 };
 
 export default EmptyState;

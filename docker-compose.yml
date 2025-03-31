@@ -3,7 +3,7 @@ services:
     build:
       context: .
     ports:
-      - "3000:3000"
+      - '3000:3000'
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/spotify_player
     depends_on:
@@ -17,7 +17,7 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=spotify_player
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
