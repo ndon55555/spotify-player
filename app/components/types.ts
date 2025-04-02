@@ -30,7 +30,7 @@ export function adaptTrackToSpotifyTrack(track: Spotify.Track): SpotifyTrack {
         id: artist.uri.split(':').pop() || '',
         name: artist.name,
         type: 'artist',
-        uri: artist.uri
+        uri: artist.uri,
       })),
       available_markets: [],
       external_urls: { spotify: track.album.uri || '' },
@@ -39,14 +39,14 @@ export function adaptTrackToSpotifyTrack(track: Spotify.Track): SpotifyTrack {
       images: track.album.images.map(image => ({
         height: image.height || undefined,
         url: image.url,
-        width: image.width || undefined
+        width: image.width || undefined,
       })),
       name: track.album.name,
       release_date: '',
       release_date_precision: 'day',
       total_tracks: 0,
       type: 'album',
-      uri: track.album.uri
+      uri: track.album.uri,
     },
     artists: track.artists.map(artist => ({
       external_urls: { spotify: artist.url || '' },
@@ -54,7 +54,7 @@ export function adaptTrackToSpotifyTrack(track: Spotify.Track): SpotifyTrack {
       id: artist.uri.split(':').pop() || '',
       name: artist.name,
       type: 'artist',
-      uri: artist.uri
+      uri: artist.uri,
     })),
     available_markets: [],
     disc_number: 1,
@@ -70,6 +70,6 @@ export function adaptTrackToSpotifyTrack(track: Spotify.Track): SpotifyTrack {
     preview_url: null,
     track_number: 1,
     type: 'track',
-    uri: track.uri
+    uri: track.uri,
   };
 }

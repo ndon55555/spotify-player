@@ -1,6 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './MainWebPlayback.css';
-import { SpotifyTrack, SpotifyPlaylist, PlaybackState, adaptTrackToSpotifyTrack, QueueTrack } from './types';
+import {
+  SpotifyTrack,
+  SpotifyPlaylist,
+  PlaybackState,
+  adaptTrackToSpotifyTrack,
+  QueueTrack,
+} from './types';
 import PlaylistItem from './PlaylistItem';
 import TrackItem from './TrackItem';
 import LoadingSpinner from './LoadingSpinner';
@@ -311,18 +317,32 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
     await playerRef.current.setVolume(newVolume / 100);
   };
 
+  // Check if a track belongs to the current playlist
+  const isTrackInCurrentPlaylist = (trackId: string): boolean => {
+    return playlistTracks.some(track => track.id === trackId);
+  };
+
   // Handle playlist selection
   const handlePlaylistSelect = async (playlist: SpotifyPlaylist) => {
     // If we have an active playlist, save its position before switching
     if (activePlaylist && playbackState && userId) {
       const currentTrack = playbackState.track_window.current_track;
       if (currentTrack && currentTrack.id) {
-        await savePlaylistPosition(activePlaylist.id, currentTrack.id, playbackState.position);
+        // Only save position if the track belongs to the active playlist
+        if (isTrackInCurrentPlaylist(currentTrack.id)) {
+          await savePlaylistPosition(activePlaylist.id, currentTrack.id, playbackState.position);
+        } else {
+          console.log(
+            `Track ${currentTrack.id} does not belong to playlist ${activePlaylist.id}, not saving position`
+          );
+        }
       }
     }
 
     setActivePlaylist(playlist);
-    fetchPlaylistTracks(playlist.id);
+
+    // Fetch tracks for the new playlist
+    await fetchPlaylistTracks(playlist.id);
 
     // Try to load saved position for the selected playlist
     const savedPosition = await loadPlaylistPosition(playlist.id);
@@ -403,17 +423,22 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
 
           // Save position periodically when playing a track
           if (activePlaylist && userId && newState.track_window.current_track.id) {
-            // Save position every 10 seconds or when paused
-            const shouldSave =
-              newState.paused ||
-              !playbackState ||
-              Math.abs(newState.position - playbackState.position) > 10000;
+            const currentTrackId = newState.track_window.current_track.id;
 
-            if (shouldSave) {
-              savePlaylistPosition(
-                activePlaylist.id,
-                newState.track_window.current_track.id,
-                newState.position
+            // Only save position if the track belongs to the active playlist
+            if (isTrackInCurrentPlaylist(currentTrackId)) {
+              // Save position every 10 seconds or when paused
+              const shouldSave =
+                newState.paused ||
+                !playbackState ||
+                Math.abs(newState.position - playbackState.position) > 10000;
+
+              if (shouldSave) {
+                savePlaylistPosition(activePlaylist.id, currentTrackId, newState.position);
+              }
+            } else {
+              console.log(
+                `Track ${currentTrackId} does not belong to playlist ${activePlaylist.id}, not saving position`
               );
             }
           }
@@ -529,7 +554,9 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
 
           {/* Current Track Info */}
           {playbackState?.track_window.current_track && (
-            <CurrentTrackInfo track={adaptTrackToSpotifyTrack(playbackState.track_window.current_track)} />
+            <CurrentTrackInfo
+              track={adaptTrackToSpotifyTrack(playbackState.track_window.current_track)}
+            />
           )}
 
           {/* Playback Controls */}
@@ -541,12 +568,13 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
           <VolumeControl volume={volume} onVolumeChange={handleVolumeChange} />
 
           {/* Queue Display */}
-          {playbackState?.track_window.next_tracks && playbackState.track_window.next_tracks.length > 0 && (
-            <QueueDisplay 
-              nextTracks={playbackState.track_window.next_tracks} 
-              onPlay={playTrack} 
-            />
-          )}
+          {playbackState?.track_window.next_tracks &&
+            playbackState.track_window.next_tracks.length > 0 && (
+              <QueueDisplay
+                nextTracks={playbackState.track_window.next_tracks}
+                onPlay={playTrack}
+              />
+            )}
 
           {/* Track List */}
           <div className="track-list-section">
