@@ -34,6 +34,8 @@ interface WebPlaybackProps {
 // Script ID constant
 const SPOTIFY_PLAYER_SCRIPT_ID = 'spotify-player-sdk';
 
+const SPOTIFY_API = 'https://api.spotify.com/v1';
+
 const WebPlayback: React.FC<WebPlaybackProps> = props => {
   const playerRef = useRef<Spotify.Player | null>(null);
   const [deviceId, setDeviceId] = useState<string>('');
@@ -49,9 +51,9 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
   const trackListContainerRef = useRef<HTMLDivElement>(null);
 
   // Fetch the current user's profile to get the user ID
-  const fetchUserProfile = async () => {
+  async function fetchUserProfile() {
     try {
-      const response = await fetch('https://api.spotify.com/v1/me', {
+      const response = await fetch(`${SPOTIFY_API}/me`, {
         headers: {
           Authorization: `Bearer ${props.token}`,
         },
@@ -70,14 +72,14 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
       setError('Failed to load user profile. Please try again.');
       return null;
     }
-  };
+  }
 
   // Save the current playlist position
-  const savePlaylistPosition = async (
+  async function savePlaylistPosition(
     playlistId: string,
     trackId: string,
     position: number
-  ): Promise<PlaylistPosition | null> => {
+  ): Promise<PlaylistPosition | null> {
     if (!userId) return null;
 
     try {
@@ -107,7 +109,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
       console.error('Error saving playlist position:', error);
       return null;
     }
-  };
+  }
 
   // Load the saved position for a playlist
   const loadPlaylistPosition = async (playlistId: string): Promise<PlaylistPosition | null> => {
@@ -130,7 +132,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
         );
 
         // Play the track at the saved position
-        await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+        await fetch(`${SPOTIFY_API}/me/player/play?device_id=${deviceId}`, {
           method: 'PUT',
           headers: {
             Authorization: `Bearer ${props.token}`,
@@ -154,12 +156,10 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
     return null;
   };
 
-  // Fetch user's playlists
-  const fetchPlaylists = async () => {
-    setIsLoadingPlaylists(true);
-    setError(null);
+  // Fetch playlists data from Spotify API
+  async function getPlaylistsData() {
     try {
-      const response = await fetch('https://api.spotify.com/v1/me/playlists', {
+      const response = await fetch(`${SPOTIFY_API}/me/playlists`, {
         headers: {
           Authorization: `Bearer ${props.token}`,
         },
@@ -170,31 +170,40 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
       }
 
       const data = await response.json();
-      if (data.items) {
-        setPlaylists(data.items);
-        console.log('Playlists loaded:', data.items.length);
+      return data.items || [];
+    } catch (error) {
+      console.error('Error fetching playlists:', error);
+      throw error;
+    }
+  }
 
-        // Set first playlist as active if none is selected
-        if (data.items.length > 0 && !activePlaylist) {
-          const firstPlaylist = data.items[0];
-          setActivePlaylist(firstPlaylist);
-          fetchPlaylistTracks(firstPlaylist.id);
+  // Initialize playlists and related state
+  async function initializePlaylistsAndState() {
+    setIsLoadingPlaylists(true);
+    setError(null);
+    try {
+      const playlistItems = await getPlaylistsData();
+      setPlaylists(playlistItems);
+      console.log('Playlists loaded:', playlistItems.length);
 
-          // Try to load saved position for the first playlist
-          if (userId) {
-            loadPlaylistPosition(firstPlaylist.id).then(savedPosition => {
-              if (!savedPosition) {
-                // If no saved position, just play from the beginning
-                playPlaylist(firstPlaylist.uri);
-              }
-            });
-          } else {
-            // If no user ID yet, just play from the beginning
-            playPlaylist(firstPlaylist.uri);
-          }
+      // Set first playlist as active if none is selected
+      if (playlistItems.length > 0 && !activePlaylist) {
+        const firstPlaylist = playlistItems[0];
+        setActivePlaylist(firstPlaylist);
+        fetchPlaylistTracks(firstPlaylist.id);
+
+        // Try to load saved position for the first playlist
+        if (userId) {
+          loadPlaylistPosition(firstPlaylist.id).then(savedPosition => {
+            if (!savedPosition) {
+              // If no saved position, just play from the beginning
+              playPlaylist(firstPlaylist.uri);
+            }
+          });
+        } else {
+          // If no user ID yet, just play from the beginning
+          playPlaylist(firstPlaylist.uri);
         }
-      } else {
-        console.log('No playlists found in response:', data);
       }
     } catch (error) {
       console.error('Error fetching playlists:', error);
@@ -202,15 +211,15 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
     } finally {
       setIsLoadingPlaylists(false);
     }
-  };
+  }
 
   // Fetch all tracks for a playlist recursively
-  const fetchAllPlaylistTracks = async (
+  async function fetchAllPlaylistTracks(
     playlistId: string,
     url: string | null = null
-  ): Promise<SpotifyTrack[]> => {
+  ): Promise<SpotifyTrack[]> {
     try {
-      const fetchUrl = url || `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=50`;
+      const fetchUrl = url || `${SPOTIFY_API}/playlists/${playlistId}/tracks?limit=50`;
 
       const response = await fetch(fetchUrl, {
         headers: {
@@ -240,7 +249,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
       console.error('Error fetching all playlist tracks:', error);
       throw error;
     }
-  };
+  }
 
   // Fetch tracks for a playlist
   const fetchPlaylistTracks = async (playlistId: string) => {
@@ -267,7 +276,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
     if (!deviceId) return;
 
     try {
-      await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+      await fetch(`${SPOTIFY_API}/me/player/play?device_id=${deviceId}`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${props.token}`,
@@ -287,7 +296,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
     if (!deviceId) return;
 
     try {
-      await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+      await fetch(`${SPOTIFY_API}/me/player/play?device_id=${deviceId}`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${props.token}`,
@@ -303,11 +312,11 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
   };
 
   // Toggle play/pause
-  const togglePlay = async () => {
+  async function togglePlay() {
     if (!playerRef.current) return;
 
     await playerRef.current.togglePlay();
-  };
+  }
 
   // Set volume
   const handleVolumeChange = async (newVolume: number) => {
@@ -324,20 +333,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
 
   // Handle playlist selection
   const handlePlaylistSelect = async (playlist: SpotifyPlaylist) => {
-    // If we have an active playlist, save its position before switching
-    if (activePlaylist && playbackState && userId) {
-      const currentTrack = playbackState.track_window.current_track;
-      if (currentTrack && currentTrack.id) {
-        // Only save position if the track belongs to the active playlist
-        if (isTrackInCurrentPlaylist(currentTrack.id)) {
-          await savePlaylistPosition(activePlaylist.id, currentTrack.id, playbackState.position);
-        } else {
-          console.log(
-            `Track ${currentTrack.id} does not belong to playlist ${activePlaylist.id}, not saving position`
-          );
-        }
-      }
-    }
+    // No need to save position here as it will be handled by player_state_changed event
 
     setActivePlaylist(playlist);
 
@@ -386,7 +382,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
       document.body.appendChild(script);
     }
 
-    const initializePlayer = () => {
+    function initializePlayer() {
       // If SDK is not ready yet, this will be called later when it is
       if (!window.Spotify) return;
 
@@ -407,7 +403,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
         setDeviceId(device_id);
 
         // Fetch playlists once we have a device ID
-        fetchPlaylists();
+        initializePlaylistsAndState();
       });
 
       // Not Ready
@@ -465,7 +461,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
           console.error('The Web Playback SDK could not connect to Spotify.');
         }
       });
-    };
+    }
 
     // Try to initialize player immediately if SDK is already loaded
     if (window.Spotify) {
@@ -485,13 +481,13 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
   }, [props.token, volume]);
 
   // Handle logout
-  const handleLogout = () => {
+  function handleLogout() {
     // Clear token from localStorage if it's stored there
     localStorage.removeItem('spotify_token');
 
     // Redirect to login page
     window.location.href = '/api/auth/login';
-  };
+  }
 
   return (
     <div className="web-playback-container">
