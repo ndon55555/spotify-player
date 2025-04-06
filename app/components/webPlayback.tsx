@@ -39,16 +39,46 @@ const SPOTIFY_API = 'https://api.spotify.com/v1';
 const WebPlayback: React.FC<WebPlaybackProps> = props => {
   const playerRef = useRef<Spotify.Player | null>(null);
   const [deviceId, setDeviceId] = useState<string>('');
+  const deviceIdRef = useRef<string>('');
   const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
+  const currentPlaybackStateRef = useRef<PlaybackState | null>(null);
+  const currentApiPlaybackStateRef = useRef<SpotifyApi.CurrentPlaybackResponse | null>(null);
+  const [unpausedAt, setUnpausedAt] = useState<number | null>(null);
+  const unpausedAtRef = useRef<number | null>(null);
   const [playlists, setPlaylists] = useState<SpotifyPlaylist[]>([]);
-  const [activePlaylist, setActivePlaylist] = useState<SpotifyPlaylist | null>(null);
   const [playlistTracks, setPlaylistTracks] = useState<SpotifyTrack[]>([]);
   const [volume, setVolume] = useState<number>(50);
   const [isLoadingPlaylists, setIsLoadingPlaylists] = useState<boolean>(false);
   const [isLoadingTracks, setIsLoadingTracks] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string>('');
+  const userIdRef = useRef<string>('');
   const trackListContainerRef = useRef<HTMLDivElement>(null);
+
+  // Compute activePlaylist from playbackState
+  const activePlaylist = playbackState?.context?.uri?.startsWith('spotify:playlist:')
+    ? playlists.find(p => p.id === playbackState?.context?.uri?.split(':')[2]) || null
+    : null;
+
+  // Helper function to get the playback state from the API
+  async function getPlaybackStateFromAPI(): Promise<SpotifyApi.CurrentPlaybackResponse | null> {
+    try {
+      const response = await fetch(`${SPOTIFY_API}/me/player`, {
+        headers: {
+          Authorization: `Bearer ${props.token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching playback state from API:', error);
+      return null;
+    }
+  }
 
   // Fetch the current user's profile to get the user ID
   async function fetchUserProfile() {
@@ -80,7 +110,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
     trackId: string,
     position: number
   ): Promise<PlaylistPosition | null> {
-    if (!userId) return null;
+    if (!userIdRef.current) return null;
 
     try {
       const response = await fetch('/api/playlist-positions', {
@@ -89,7 +119,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          userId,
+          userId: userIdRef.current,
           playlistId,
           trackId,
           position,
@@ -113,11 +143,11 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
 
   // Load the saved position for a playlist
   const loadPlaylistPosition = async (playlistId: string): Promise<PlaylistPosition | null> => {
-    if (!userId || !deviceId) return null;
+    if (!userIdRef.current || !deviceIdRef.current) return null;
 
     try {
       const response = await fetch(
-        `/api/playlist-positions?userId=${userId}&playlistId=${playlistId}`
+        `/api/playlist-positions?userId=${userIdRef.current}&playlistId=${playlistId}`
       );
 
       if (!response.ok) {
@@ -132,7 +162,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
         );
 
         // Play the track at the saved position
-        await fetch(`${SPOTIFY_API}/me/player/play?device_id=${deviceId}`, {
+        await fetch(`${SPOTIFY_API}/me/player/play?device_id=${deviceIdRef.current}`, {
           method: 'PUT',
           headers: {
             Authorization: `Bearer ${props.token}`,
@@ -189,11 +219,10 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
       // Set first playlist as active if none is selected
       if (playlistItems.length > 0 && !activePlaylist) {
         const firstPlaylist = playlistItems[0];
-        setActivePlaylist(firstPlaylist);
         fetchPlaylistTracks(firstPlaylist.id);
 
         // Try to load saved position for the first playlist
-        if (userId) {
+        if (userIdRef.current) {
           loadPlaylistPosition(firstPlaylist.id).then(savedPosition => {
             if (!savedPosition) {
               // If no saved position, just play from the beginning
@@ -273,10 +302,10 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
 
   // Play a specific track
   const playTrack = async (trackUri: string) => {
-    if (!deviceId) return;
+    if (!deviceIdRef.current) return;
 
     try {
-      await fetch(`${SPOTIFY_API}/me/player/play?device_id=${deviceId}`, {
+      await fetch(`${SPOTIFY_API}/me/player/play?device_id=${deviceIdRef.current}`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${props.token}`,
@@ -293,10 +322,10 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
 
   // Play a specific playlist
   const playPlaylist = async (playlistUri: string) => {
-    if (!deviceId) return;
+    if (!deviceIdRef.current) return;
 
     try {
-      await fetch(`${SPOTIFY_API}/me/player/play?device_id=${deviceId}`, {
+      await fetch(`${SPOTIFY_API}/me/player/play?device_id=${deviceIdRef.current}`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${props.token}`,
@@ -326,20 +355,8 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
     await playerRef.current.setVolume(newVolume / 100);
   };
 
-  // Check if a track belongs to the current playlist
-  const isTrackInCurrentPlaylist = (trackId: string): boolean => {
-    return playlistTracks.some(track => track.id === trackId);
-  };
-
   // Handle playlist selection
   const handlePlaylistSelect = async (playlist: SpotifyPlaylist) => {
-    // No need to save position here as it will be handled by player_state_changed event
-
-    setActivePlaylist(playlist);
-
-    // Fetch tracks for the new playlist
-    await fetchPlaylistTracks(playlist.id);
-
     // Try to load saved position for the selected playlist
     const savedPosition = await loadPlaylistPosition(playlist.id);
 
@@ -355,6 +372,23 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
       fetchUserProfile();
     }
   }, [props.token]);
+
+  // Effect to update the refs whenever state changes
+  useEffect(() => {
+    currentPlaybackStateRef.current = playbackState;
+  }, [playbackState]);
+
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
+
+  useEffect(() => {
+    deviceIdRef.current = deviceId;
+  }, [deviceId]);
+
+  useEffect(() => {
+    unpausedAtRef.current = unpausedAt;
+  }, [unpausedAt]);
 
   // Effect to scroll to the active track when playlist changes or tracks are loaded
   useEffect(() => {
@@ -412,33 +446,120 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
       });
 
       // Player state changed
-      player.addListener('player_state_changed', state => {
-        if (state) {
-          const newState = state as unknown as PlaybackState;
-          setPlaybackState(newState);
+      player.addListener('player_state_changed', async state => {
+        console.log('Player state changed:', state);
+        if (!state) return;
 
-          // Save position periodically when playing a track
-          if (activePlaylist && userId && newState.track_window.current_track.id) {
-            const currentTrackId = newState.track_window.current_track.id;
+        // Get the track ID from the API (in the context of the playlist)
+        const newPlaybackStateFromAPI = await getPlaybackStateFromAPI();
+        const newState = state as unknown as PlaybackState;
+        const newTrack = newState.track_window.current_track;
+        const currentTrack = currentPlaybackStateRef.current?.track_window.current_track;
+        const currentTrackId = currentApiPlaybackStateRef.current?.item?.id;
+        const wasPaused = currentPlaybackStateRef.current?.paused;
+        const isNowPaused = newState.paused;
 
-            // Only save position if the track belongs to the active playlist
-            if (isTrackInCurrentPlaylist(currentTrackId)) {
-              // Save position every 10 seconds or when paused
-              const shouldSave =
-                newState.paused ||
-                !playbackState ||
-                Math.abs(newState.position - playbackState.position) > 10000;
+        // Get playlist IDs
+        const newPlaylistId = newState.context?.uri?.startsWith('spotify:playlist:')
+          ? newState.context.uri.split(':')[2]
+          : null;
+        const currentPlaylistId = currentPlaybackStateRef.current?.context?.uri?.startsWith(
+          'spotify:playlist:'
+        )
+          ? currentPlaybackStateRef.current.context.uri.split(':')[2]
+          : null;
 
-              if (shouldSave) {
-                savePlaylistPosition(activePlaylist.id, currentTrackId, newState.position);
-              }
-            } else {
+        // Check if playlist has changed
+        const playlistChanged = newPlaylistId !== currentPlaylistId;
+
+        if (playlistChanged) {
+          // PLAYLIST CHANGED LOGIC
+          console.log(
+            `Playlist changed from ${currentPlaylistId || 'none'} to ${newPlaylistId || 'none'}`
+          );
+
+          // If we have a new playlist, fetch its tracks
+          if (newPlaylistId) {
+            console.log(`Fetching tracks for new playlist: ${newPlaylistId}`);
+            fetchPlaylistTracks(newPlaylistId);
+          }
+
+          // Save position of previous track if it was in a playlist
+          if (currentTrack?.id && currentPlaylistId && userIdRef.current) {
+            // Calculate the actual position
+            let actualPosition = currentPlaybackStateRef.current
+              ? currentPlaybackStateRef.current.position
+              : 0;
+
+            // If the track was playing (not paused), add the elapsed time since it was unpaused
+            if (
+              currentPlaybackStateRef.current &&
+              !currentPlaybackStateRef.current.paused &&
+              unpausedAtRef.current
+            ) {
+              const elapsedSinceUnpaused = Date.now() - unpausedAtRef.current;
+              actualPosition += elapsedSinceUnpaused;
               console.log(
-                `Track ${currentTrackId} does not belong to playlist ${activePlaylist.id}, not saving position`
+                `Added ${elapsedSinceUnpaused}ms to position (unpaused at: ${unpausedAtRef.current})`
               );
+            }
+
+            if (!currentTrackId) {
+              console.error('No track ID available from API state, skipping position save');
+              return;
+            }
+            savePlaylistPosition(currentPlaylistId, currentTrackId, actualPosition);
+          }
+        } else {
+          // SAME PLAYLIST LOGIC (or no playlist context)
+
+          // Track has changed within the same playlist
+          if (currentTrack?.id !== newTrack.id) {
+            console.log(`Track changed from ${currentTrack?.id || 'none'} to ${newTrack.id}`);
+
+            // We don't save position when just changing tracks within the same playlist
+            // because we only want to remember where in the playlist we are when we return to it
+          } else if (currentPlaylistId && userIdRef.current && currentTrack?.id) {
+            // Same track, check if we need to save position (when paused or periodically)
+            const significantTimePassed =
+              !currentPlaybackStateRef.current ||
+              Math.abs(newState.position - currentPlaybackStateRef.current.position) > 10000;
+
+            if (isNowPaused || significantTimePassed) {
+              // Calculate the actual position
+              let positionToSave = newState.position;
+
+              // If the track is playing (not paused), add the elapsed time since it was unpaused
+              if (!isNowPaused && unpausedAtRef.current) {
+                const elapsedSinceUnpaused = Date.now() - unpausedAtRef.current;
+                positionToSave = newState.position + elapsedSinceUnpaused;
+                console.log(
+                  `Periodic save: Adding ${elapsedSinceUnpaused}ms to position ${newState.position}ms = ${positionToSave}ms`
+                );
+              }
+
+              if (!currentTrackId) {
+                console.error('No track ID available from API state, skipping position save');
+                return;
+              }
+              savePlaylistPosition(currentPlaylistId, currentTrackId, positionToSave);
             }
           }
         }
+
+        // Update playback state
+        setPlaybackState(newState);
+
+        // Now that all position calculations are done, update the unpausedAt state for the next cycle
+        if (isNowPaused) {
+          console.log(`Track paused at position: ${newState.position}ms`);
+          setUnpausedAt(null);
+        } else if (wasPaused && !isNowPaused) {
+          console.log(`Track unpaused at position: ${newState.position}ms`);
+          setUnpausedAt(Date.now());
+        }
+
+        currentApiPlaybackStateRef.current = newPlaybackStateFromAPI;
       });
 
       player.addListener('initialization_error', ({ message }) => {
