@@ -4,13 +4,13 @@ import { eq, and } from 'drizzle-orm';
 const { playlistPositions } = schema;
 
 /**
- * Service for managing playlist positions
+ * Service for managing last played tracks in playlists
  */
 export const playlistPositionService = {
   /**
-   * Save the current position in a playlist for a user
+   * Save the last played track in a playlist for a user
    */
-  async savePosition(userId: string, playlistId: string, trackId: string, position: number) {
+  async savePosition(userId: string, playlistId: string, trackId: string) {
     try {
       // Check if a record already exists for this user and playlist
       const existingPosition = await db
@@ -27,7 +27,6 @@ export const playlistPositionService = {
           .update(playlistPositions)
           .set({
             trackId,
-            position,
             updatedAt: new Date(),
           })
           .where(
@@ -42,7 +41,6 @@ export const playlistPositionService = {
             userId,
             playlistId,
             trackId,
-            position,
           })
           .returning();
       }
@@ -53,7 +51,7 @@ export const playlistPositionService = {
   },
 
   /**
-   * Get the saved position for a playlist
+   * Get the last played track for a playlist
    */
   async getPosition(userId: string, playlistId: string) {
     try {
@@ -73,7 +71,7 @@ export const playlistPositionService = {
   },
 
   /**
-   * Delete a saved position
+   * Delete a saved track position
    */
   async deletePosition(userId: string, playlistId: string) {
     try {

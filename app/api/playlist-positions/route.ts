@@ -38,9 +38,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { userId, playlistId, trackId, position } = body;
+    const { userId, playlistId, trackId } = body;
 
-    if (!userId || !playlistId || !trackId || position === undefined) {
+    if (!userId || !playlistId || !trackId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -60,7 +60,6 @@ export async function POST(request: NextRequest) {
         .update(playlistPositions)
         .set({
           trackId,
-          position,
           updatedAt: new Date(),
         })
         .where(
@@ -75,7 +74,6 @@ export async function POST(request: NextRequest) {
           userId,
           playlistId,
           trackId,
-          position,
         })
         .returning();
     }

@@ -1,7 +1,7 @@
-import { pgTable, serial, varchar, timestamp, integer } from 'drizzle-orm/pg-core';
+import { pgTable, serial, varchar, timestamp } from 'drizzle-orm/pg-core';
 
 /**
- * Table to store user's playlist positions
+ * Table to store user's last played track in each playlist
  * This allows the app to remember which track was last played in each playlist
  */
 export const playlistPositions = pgTable('playlist_positions', {
@@ -9,7 +9,6 @@ export const playlistPositions = pgTable('playlist_positions', {
   userId: varchar('user_id', { length: 255 }).notNull(),
   playlistId: varchar('playlist_id', { length: 255 }).notNull(),
   trackId: varchar('track_id', { length: 255 }).notNull(),
-  position: integer('position').notNull().default(0), // Position in milliseconds
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 

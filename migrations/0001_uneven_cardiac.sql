@@ -1,0 +1,1 @@
+ALTER TABLE "playlist_positions" DROP COLUMN "position";
