@@ -10,6 +10,7 @@ import VolumeControl from './VolumeControl';
 import CurrentTrackInfo from './CurrentTrackInfo';
 import ActivePlaylistHeader from './ActivePlaylistHeader';
 import QueueDisplay from './QueueDisplay';
+import TrackProgress from './TrackProgress';
 
 // Define interface for playlist position
 interface PlaylistPosition {
@@ -338,6 +339,25 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
     await playerRef.current.togglePlay();
   }
 
+  // Seek to position
+  async function seekToPosition(position: number) {
+    if (!deviceIdRef.current) return;
+
+    try {
+      await fetch(
+        `${SPOTIFY_API}/me/player/seek?position_ms=${position}&device_id=${deviceIdRef.current}`,
+        {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${props.token}`,
+          },
+        }
+      );
+    } catch (error) {
+      console.error('Error seeking to position:', error);
+    }
+  }
+
   // Set volume
   const handleVolumeChange = async (newVolume: number) => {
     if (!playerRef.current) return;
@@ -652,6 +672,18 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
           {playbackState?.track_window.current_track && (
             <CurrentTrackInfo
               track={adaptTrackToSpotifyTrack(playbackState.track_window.current_track)}
+            />
+          )}
+
+          {/* Track Progress */}
+          {playbackState && playbackState.track_window.current_track && (
+            <TrackProgress
+              position={playbackState.position}
+              duration={
+                playbackState.duration || playbackState.track_window.current_track.duration_ms
+              }
+              isPaused={playbackState.paused}
+              onSeek={seekToPosition}
             />
           )}
 
