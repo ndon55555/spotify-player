@@ -38,12 +38,10 @@ const SPOTIFY_API = 'https://api.spotify.com/v1';
 
 const WebPlayback: React.FC<WebPlaybackProps> = props => {
   const playerRef = useRef<Spotify.Player | null>(null);
-  const [deviceId, setDeviceId] = useState<string>('');
   const deviceIdRef = useRef<string>('');
   const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
   const currentPlaybackStateRef = useRef<PlaybackState | null>(null);
   const currentApiPlaybackStateRef = useRef<SpotifyApi.CurrentPlaybackResponse | null>(null);
-  const [unpausedAt, setUnpausedAt] = useState<number | null>(null);
   const unpausedAtRef = useRef<number | null>(null);
   const [playlists, setPlaylists] = useState<SpotifyPlaylist[]>([]);
   const [playlistTracks, setPlaylistTracks] = useState<SpotifyTrack[]>([]);
@@ -51,7 +49,6 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
   const [isLoadingPlaylists, setIsLoadingPlaylists] = useState<boolean>(false);
   const [isLoadingTracks, setIsLoadingTracks] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string>('');
   const userIdRef = useRef<string>('');
   const trackListContainerRef = useRef<HTMLDivElement>(null);
 
@@ -94,7 +91,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
       }
 
       const data = await response.json();
-      setUserId(data.id);
+      userIdRef.current = data.id;
       console.log('User ID:', data.id);
       return data.id;
     } catch (error) {
@@ -373,22 +370,10 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
     }
   }, [props.token]);
 
-  // Effect to update the refs whenever state changes
+  // Effect to update the ref whenever playbackState changes
   useEffect(() => {
     currentPlaybackStateRef.current = playbackState;
   }, [playbackState]);
-
-  useEffect(() => {
-    userIdRef.current = userId;
-  }, [userId]);
-
-  useEffect(() => {
-    deviceIdRef.current = deviceId;
-  }, [deviceId]);
-
-  useEffect(() => {
-    unpausedAtRef.current = unpausedAt;
-  }, [unpausedAt]);
 
   // Effect to scroll to the active track when playlist changes or tracks are loaded
   useEffect(() => {
@@ -434,7 +419,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
       // Ready
       player.addListener('ready', ({ device_id }) => {
         console.log('Ready with Device ID', device_id);
-        setDeviceId(device_id);
+        deviceIdRef.current = device_id;
 
         // Fetch playlists once we have a device ID
         initializePlaylistsAndState();
@@ -550,13 +535,13 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
         // Update playback state
         setPlaybackState(newState);
 
-        // Now that all position calculations are done, update the unpausedAt state for the next cycle
+        // Now that all position calculations are done, update the unpausedAtRef for the next cycle
         if (isNowPaused) {
           console.log(`Track paused at position: ${newState.position}ms`);
-          setUnpausedAt(null);
+          unpausedAtRef.current = null;
         } else if (wasPaused && !isNowPaused) {
           console.log(`Track unpaused at position: ${newState.position}ms`);
-          setUnpausedAt(Date.now());
+          unpausedAtRef.current = Date.now();
         }
 
         currentApiPlaybackStateRef.current = newPlaybackStateFromAPI;
