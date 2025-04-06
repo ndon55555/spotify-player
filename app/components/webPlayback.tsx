@@ -1,12 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './MainWebPlayback.css';
-import {
-  SpotifyTrack,
-  SpotifyPlaylist,
-  PlaybackState,
-  adaptTrackToSpotifyTrack,
-  QueueTrack,
-} from './types';
+import { SpotifyTrack, SpotifyPlaylist, PlaybackState, adaptTrackToSpotifyTrack } from './types';
 import PlaylistItem from './PlaylistItem';
 import TrackItem from './TrackItem';
 import LoadingSpinner from './LoadingSpinner';
@@ -38,7 +32,7 @@ const SPOTIFY_API = 'https://api.spotify.com/v1';
 
 const WebPlayback: React.FC<WebPlaybackProps> = props => {
   const playerRef = useRef<Spotify.Player | null>(null);
-  const deviceIdRef = useRef<string>('');
+  const deviceIdRef = useRef<string | null>(null);
   const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
   const currentPlaybackStateRef = useRef<PlaybackState | null>(null);
   const currentApiPlaybackStateRef = useRef<SpotifyApi.CurrentPlaybackResponse | null>(null);
@@ -49,7 +43,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
   const [isLoadingPlaylists, setIsLoadingPlaylists] = useState<boolean>(false);
   const [isLoadingTracks, setIsLoadingTracks] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const userIdRef = useRef<string>('');
+  const userIdRef = useRef<string | null>(null);
   const trackListContainerRef = useRef<HTMLDivElement>(null);
 
   // Compute activePlaylist from playbackState
