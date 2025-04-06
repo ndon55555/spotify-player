@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './MainWebPlayback.css';
-import { SpotifyTrack, SpotifyPlaylist, PlaybackState, adaptTrackToSpotifyTrack } from './types';
+import { SpotifyTrack, SpotifyPlaylist } from './types';
 import PlaylistItem from './PlaylistItem';
 import TrackItem from './TrackItem';
 import LoadingSpinner from './LoadingSpinner';
@@ -9,8 +9,8 @@ import PlaybackControls from './PlaybackControls';
 import VolumeControl from './VolumeControl';
 import CurrentTrackInfo from './CurrentTrackInfo';
 import ActivePlaylistHeader from './ActivePlaylistHeader';
-import QueueDisplay from './QueueDisplay';
 import TrackProgress from './TrackProgress';
+import QueueDisplay from './QueueDisplay';
 
 // Define interface for playlist track
 interface PlaylistPosition {
@@ -33,11 +33,16 @@ const SPOTIFY_API = 'https://api.spotify.com/v1';
 const WebPlayback: React.FC<WebPlaybackProps> = props => {
   const playerRef = useRef<Spotify.Player | null>(null);
   const deviceIdRef = useRef<string | null>(null);
-  const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
-  const currentPlaybackStateRef = useRef<PlaybackState | null>(null);
-  const currentApiPlaybackStateRef = useRef<SpotifyApi.CurrentPlaybackResponse | null>(null);
+  const [playbackState, setPlaybackState] = useState<SpotifyApi.CurrentPlaybackResponse | null>(
+    null
+  );
+  const currentPlaybackStateRef = useRef<SpotifyApi.CurrentPlaybackResponse | null>(null);
   const [playlists, setPlaylists] = useState<SpotifyPlaylist[]>([]);
   const [playlistTracks, setPlaylistTracks] = useState<SpotifyTrack[]>([]);
+  const [queueTracks, setQueueTracks] = useState<
+    Array<SpotifyApi.TrackObjectFull | SpotifyApi.EpisodeObjectFull>
+  >([]);
+  const [isLoadingQueue, setIsLoadingQueue] = useState<boolean>(false);
   const [volume, setVolume] = useState<number>(50);
   const [isLoadingPlaylists, setIsLoadingPlaylists] = useState<boolean>(false);
   const [isLoadingTracks, setIsLoadingTracks] = useState<boolean>(false);
@@ -66,6 +71,26 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
       return await response.json();
     } catch (error) {
       console.error('Error fetching playback state from API:', error);
+      return null;
+    }
+  }
+
+  // Helper function to get the queue from the API
+  async function getQueueFromAPI(): Promise<SpotifyApi.UsersQueueResponse | null> {
+    try {
+      const response = await fetch(`${SPOTIFY_API}/me/player/queue`, {
+        headers: {
+          Authorization: `Bearer ${props.token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching queue from API:', error);
       return null;
     }
   }
@@ -284,6 +309,21 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
     }
   };
 
+  // Fetch the queue
+  const fetchQueue = async () => {
+    setIsLoadingQueue(true);
+    try {
+      const queueData = await getQueueFromAPI();
+      if (queueData) {
+        setQueueTracks(queueData.queue);
+      }
+    } catch (error) {
+      console.error('Error fetching queue:', error);
+    } finally {
+      setIsLoadingQueue(false);
+    }
+  };
+
   // Play a specific track
   const playTrack = async (trackUri: string) => {
     if (!deviceIdRef.current) return;
@@ -299,6 +339,9 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
           uris: [trackUri],
         }),
       });
+
+      // Fetch the updated queue after playing a track
+      fetchQueue();
     } catch (error) {
       console.error('Error playing track:', error);
     }
@@ -379,13 +422,18 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
   // Effect to update the ref whenever playbackState changes
   useEffect(() => {
     currentPlaybackStateRef.current = playbackState;
+
+    // Fetch the queue whenever the playback state changes
+    if (playbackState) {
+      fetchQueue();
+    }
   }, [playbackState]);
 
   // Effect to scroll to the active track when playlist changes or tracks are loaded
   useEffect(() => {
-    if (playlistTracks.length > 0 && playbackState && trackListContainerRef.current) {
+    if (playlistTracks.length > 0 && playbackState?.item && trackListContainerRef.current) {
       // Find the active track element
-      const activeTrackId = playbackState.track_window.current_track.id;
+      const activeTrackId = playbackState.item.id;
       if (activeTrackId) {
         const activeTrackElement =
           trackListContainerRef.current.querySelector(`.track-item.active`);
@@ -437,20 +485,18 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
       });
 
       // Player state changed
-      player.addListener('player_state_changed', async state => {
-        console.log('Player state changed:', state);
-        if (!state) return;
-
+      player.addListener('player_state_changed', async _state => {
         // Get the track ID from the API (in the context of the playlist)
         const newPlaybackStateFromAPI = await getPlaybackStateFromAPI();
-        const newState = state as unknown as PlaybackState;
-        const newTrack = newState.track_window.current_track;
-        const currentTrack = currentPlaybackStateRef.current?.track_window.current_track;
-        const currentTrackId = currentApiPlaybackStateRef.current?.item?.id;
+        if (!newPlaybackStateFromAPI) return;
+
+        // Get the current track ID
+        const newTrackId = newPlaybackStateFromAPI.item?.id;
+        const currentTrackId = currentPlaybackStateRef.current?.item?.id;
 
         // Get playlist IDs
-        const newPlaylistId = newState.context?.uri?.startsWith('spotify:playlist:')
-          ? newState.context.uri.split(':')[2]
+        const newPlaylistId = newPlaybackStateFromAPI.context?.uri?.startsWith('spotify:playlist:')
+          ? newPlaybackStateFromAPI.context.uri.split(':')[2]
           : null;
         const currentPlaylistId = currentPlaybackStateRef.current?.context?.uri?.startsWith(
           'spotify:playlist:'
@@ -474,11 +520,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
           }
 
           // Save the current track ID for the previous playlist
-          if (currentTrack?.id && currentPlaylistId && userIdRef.current) {
-            if (!currentTrackId) {
-              console.error('No track ID available from API state, skipping track save');
-              return;
-            }
+          if (currentTrackId && currentPlaylistId && userIdRef.current) {
             // Save the track ID (position is always 0)
             savePlaylistPosition(currentPlaylistId, currentTrackId);
           }
@@ -486,20 +528,16 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
           // SAME PLAYLIST LOGIC (or no playlist context)
 
           // Track has changed within the same playlist
-          if (currentTrack?.id !== newTrack.id && currentPlaylistId && newPlaylistId) {
-            console.log(`Track changed from ${currentTrack?.id || 'none'} to ${newTrack.id}`);
+          if (currentTrackId !== newTrackId && currentPlaylistId && newPlaylistId && newTrackId) {
+            console.log(`Track changed from ${currentTrackId || 'none'} to ${newTrackId}`);
 
             // Save the new track ID for the current playlist
-            if (newTrack.id) {
-              savePlaylistPosition(newPlaylistId, newTrack.id);
-            }
+            savePlaylistPosition(newPlaylistId, newTrackId);
           }
         }
 
         // Update playback state
-        setPlaybackState(newState);
-
-        currentApiPlaybackStateRef.current = newPlaybackStateFromAPI;
+        setPlaybackState(newPlaybackStateFromAPI);
       });
 
       player.addListener('initialization_error', ({ message }) => {
@@ -610,40 +648,28 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
           {activePlaylist && <ActivePlaylistHeader playlist={activePlaylist} />}
 
           {/* Current Track Info */}
-          {playbackState?.track_window.current_track && (
-            <CurrentTrackInfo
-              track={adaptTrackToSpotifyTrack(playbackState.track_window.current_track)}
-            />
-          )}
+          {playbackState?.item && <CurrentTrackInfo track={playbackState.item as SpotifyTrack} />}
 
           {/* Track Progress */}
-          {playbackState && playbackState.track_window.current_track && (
+          {playbackState && playbackState.item && (
             <TrackProgress
-              position={playbackState.position}
-              duration={
-                playbackState.duration || playbackState.track_window.current_track.duration_ms
-              }
-              isPaused={playbackState.paused}
+              position={playbackState.progress_ms || 0}
+              duration={playbackState.item.duration_ms}
+              isPaused={!playbackState.is_playing}
               onSeek={seekToPosition}
             />
           )}
 
           {/* Playback Controls */}
           {playbackState && (
-            <PlaybackControls isPaused={playbackState.paused} onTogglePlay={togglePlay} />
+            <PlaybackControls isPaused={!playbackState.is_playing} onTogglePlay={togglePlay} />
           )}
 
           {/* Volume Control */}
           <VolumeControl volume={volume} onVolumeChange={handleVolumeChange} />
 
           {/* Queue Display */}
-          {playbackState?.track_window.next_tracks &&
-            playbackState.track_window.next_tracks.length > 0 && (
-              <QueueDisplay
-                nextTracks={playbackState.track_window.next_tracks}
-                onPlay={playTrack}
-              />
-            )}
+          <QueueDisplay queueTracks={queueTracks} isLoading={isLoadingQueue} onPlay={playTrack} />
 
           {/* Track List */}
           <div className="track-list-section">
@@ -660,7 +686,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
                     <TrackItem
                       key={track.id}
                       track={track}
-                      isActive={playbackState?.track_window.current_track?.id === track.id}
+                      isActive={playbackState?.item?.id === track.id}
                       onPlay={playTrack}
                       index={index + 1}
                     />
