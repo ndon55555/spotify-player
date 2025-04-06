@@ -13,10 +13,16 @@ interface TrackProgressProps {
  * Shows current position, total duration, and allows seeking
  */
 const TrackProgress: React.FC<TrackProgressProps> = ({ position, duration, isPaused, onSeek }) => {
+  // State to track the displayed position (which may differ from actual position during dragging)
   const [displayPosition, setDisplayPosition] = useState(position);
+  // State to track if user is dragging the progress handle
   const [isDragging, setIsDragging] = useState(false);
+  // Ref to the progress bar element for calculating click/drag positions
   const progressBarRef = useRef<HTMLDivElement>(null);
+  // Ref to store the last time we updated the position
   const lastUpdateTimeRef = useRef<number>(Date.now());
+  // Ref to store the animation frame ID
+  const animationFrameRef = useRef<number | null>(null);
 
   // Format milliseconds to MM:SS format
   const formatTime = (ms: number): string => {
@@ -29,10 +35,10 @@ const TrackProgress: React.FC<TrackProgressProps> = ({ position, duration, isPau
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  // Calculate progress percentage
+  // Calculate progress percentage for the progress bar width
   const progressPercentage = duration > 0 ? (displayPosition / duration) * 100 : 0;
 
-  // Update display position when actual position changes (if not dragging)
+  // Update display position when the actual position changes (if not dragging)
   useEffect(() => {
     if (!isDragging) {
       setDisplayPosition(position);
@@ -40,19 +46,47 @@ const TrackProgress: React.FC<TrackProgressProps> = ({ position, duration, isPau
     }
   }, [position, isDragging]);
 
-  // Update position in real-time when playing
+  // Handle animation frame updates for smooth progress bar movement
+  const updateProgressBar = () => {
+    if (isPaused || isDragging) {
+      // If paused or dragging, don't update the position
+      animationFrameRef.current = null;
+      return;
+    }
+
+    const now = Date.now();
+    const elapsed = now - lastUpdateTimeRef.current;
+    lastUpdateTimeRef.current = now;
+
+    // Update the display position based on elapsed time
+    setDisplayPosition(prev => Math.min(prev + elapsed, duration));
+
+    // Request the next animation frame
+    animationFrameRef.current = requestAnimationFrame(updateProgressBar);
+  };
+
+  // Set up and clean up the animation frame
   useEffect(() => {
-    if (isPaused || isDragging) return;
+    // If paused or dragging, don't start the animation
+    if (isPaused || isDragging) {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+      return;
+    }
 
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const elapsed = now - lastUpdateTimeRef.current;
-      lastUpdateTimeRef.current = now;
+    // Start the animation
+    lastUpdateTimeRef.current = Date.now();
+    animationFrameRef.current = requestAnimationFrame(updateProgressBar);
 
-      setDisplayPosition(prev => Math.min(prev + elapsed, duration));
-    }, 50); // Update every 50ms for smooth animation
-
-    return () => clearInterval(interval);
+    // Clean up on unmount or when dependencies change
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
   }, [isPaused, isDragging, duration]);
 
   // Handle click on progress bar
@@ -71,6 +105,12 @@ const TrackProgress: React.FC<TrackProgressProps> = ({ position, duration, isPau
   // Handle drag start
   const handleDragStart = () => {
     setIsDragging(true);
+
+    // Cancel any ongoing animation
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
   };
 
   // Handle drag end
@@ -78,6 +118,12 @@ const TrackProgress: React.FC<TrackProgressProps> = ({ position, duration, isPau
     if (isDragging) {
       onSeek(displayPosition);
       setIsDragging(false);
+
+      // Restart animation if not paused
+      if (!isPaused) {
+        lastUpdateTimeRef.current = Date.now();
+        animationFrameRef.current = requestAnimationFrame(updateProgressBar);
+      }
     }
   };
 
@@ -111,6 +157,12 @@ const TrackProgress: React.FC<TrackProgressProps> = ({ position, duration, isPau
     const handleMouseUp = () => {
       onSeek(displayPosition);
       setIsDragging(false);
+
+      // Restart animation if not paused
+      if (!isPaused) {
+        lastUpdateTimeRef.current = Date.now();
+        animationFrameRef.current = requestAnimationFrame(updateProgressBar);
+      }
     };
 
     document.addEventListener('mousemove', handleMouseMove);
@@ -120,7 +172,16 @@ const TrackProgress: React.FC<TrackProgressProps> = ({ position, duration, isPau
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, duration, displayPosition, onSeek]);
+  }, [isDragging, duration, displayPosition, onSeek, isPaused]);
+
+  // Clean up animation frame on unmount
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="track-progress">

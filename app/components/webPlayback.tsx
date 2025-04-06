@@ -36,6 +36,8 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
   const [playbackState, setPlaybackState] = useState<SpotifyApi.CurrentPlaybackResponse | null>(
     null
   );
+  // Local state to track play/pause state immediately
+  const [isLocalPaused, setIsLocalPaused] = useState<boolean>(true);
   const currentPlaybackStateRef = useRef<SpotifyApi.CurrentPlaybackResponse | null>(null);
   const [playlists, setPlaylists] = useState<SpotifyPlaylist[]>([]);
   const [playlistTracks, setPlaylistTracks] = useState<SpotifyTrack[]>([]);
@@ -232,15 +234,39 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
 
         // Try to load saved position for the first playlist
         if (userIdRef.current) {
-          loadPlaylistPosition(firstPlaylist.id).then(savedPosition => {
+          loadPlaylistPosition(firstPlaylist.id).then(async savedPosition => {
             if (!savedPosition) {
               // If no saved position, just play from the beginning
-              playPlaylist(firstPlaylist.uri);
+              await playPlaylist(firstPlaylist.uri);
             }
+
+            // Set isLocalPaused to false since we're starting playback
+            setIsLocalPaused(false);
+
+            // Fetch the playback state to ensure UI is in sync
+            setTimeout(async () => {
+              const state = await getPlaybackStateFromAPI();
+              if (state) {
+                console.log(`Initial playback state: is_playing=${state.is_playing}`);
+                setPlaybackState(state);
+              }
+            }, 500);
           });
         } else {
           // If no user ID yet, just play from the beginning
-          playPlaylist(firstPlaylist.uri);
+          await playPlaylist(firstPlaylist.uri);
+
+          // Set isLocalPaused to false since we're starting playback
+          setIsLocalPaused(false);
+
+          // Fetch the playback state to ensure UI is in sync
+          setTimeout(async () => {
+            const state = await getPlaybackStateFromAPI();
+            if (state) {
+              console.log(`Initial playback state: is_playing=${state.is_playing}`);
+              setPlaybackState(state);
+            }
+          }, 500);
         }
       }
     } catch (error) {
@@ -369,9 +395,47 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
 
   // Toggle play/pause
   async function togglePlay() {
-    if (!playerRef.current) return;
+    if (!deviceIdRef.current) return;
 
-    await playerRef.current.togglePlay();
+    try {
+      // Immediately update local pause state
+      const newPausedState = !isLocalPaused;
+      setIsLocalPaused(newPausedState);
+
+      console.log(`Toggling playback to ${newPausedState ? 'paused' : 'playing'}`);
+
+      // Call Spotify API directly instead of using SDK
+      if (newPausedState) {
+        // Pause playback
+        await fetch(`${SPOTIFY_API}/me/player/pause?device_id=${deviceIdRef.current}`, {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${props.token}`,
+          },
+        });
+      } else {
+        // Resume playback
+        await fetch(`${SPOTIFY_API}/me/player/play?device_id=${deviceIdRef.current}`, {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${props.token}`,
+          },
+        });
+      }
+
+      // Fetch updated playback state after API call
+      setTimeout(async () => {
+        const updatedState = await getPlaybackStateFromAPI();
+        if (updatedState) {
+          console.log(`Updated playback state: is_playing=${updatedState.is_playing}`);
+          setPlaybackState(updatedState);
+        }
+      }, 200); // Small delay to ensure API has processed the request
+    } catch (error) {
+      console.error('Error toggling playback:', error);
+      // Revert local state if API call fails
+      setIsLocalPaused(isLocalPaused);
+    }
   }
 
   // Seek to position
@@ -423,8 +487,9 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
   useEffect(() => {
     currentPlaybackStateRef.current = playbackState;
 
-    // Fetch the queue whenever the playback state changes
+    // Sync local pause state with playback state when it updates from API
     if (playbackState) {
+      setIsLocalPaused(!playbackState.is_playing);
       fetchQueue();
     }
   }, [playbackState]);
@@ -655,15 +720,13 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
             <TrackProgress
               position={playbackState.progress_ms || 0}
               duration={playbackState.item.duration_ms}
-              isPaused={!playbackState.is_playing}
+              isPaused={isLocalPaused}
               onSeek={seekToPosition}
             />
           )}
 
           {/* Playback Controls */}
-          {playbackState && (
-            <PlaybackControls isPaused={!playbackState.is_playing} onTogglePlay={togglePlay} />
-          )}
+          {playbackState && <PlaybackControls isPaused={isLocalPaused} onTogglePlay={togglePlay} />}
 
           {/* Volume Control */}
           <VolumeControl volume={volume} onVolumeChange={handleVolumeChange} />
