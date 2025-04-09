@@ -475,6 +475,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
     if (!deviceIdRef.current) return;
 
     try {
+      // Simply send the command to Spotify and let the player_state_changed event handle the UI update
       await fetch(`${SPOTIFY_API}/me/player/previous?device_id=${deviceIdRef.current}`, {
         method: 'POST',
         headers: {
@@ -482,14 +483,8 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
         },
       });
 
-      // Fetch updated playback state after API call
-      setTimeout(async () => {
-        const updatedState = await getPlaybackStateFromAPI();
-        if (updatedState) {
-          setPlaybackState(updatedState);
-          fetchQueue();
-        }
-      }, 200);
+      // The player_state_changed event will automatically update the UI
+      // No need to manually fetch state or queue as they'll be handled by the event listener
     } catch (error) {
       console.error('Error skipping to previous track:', error);
     }
@@ -500,6 +495,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
     if (!deviceIdRef.current) return;
 
     try {
+      // Simply send the command to Spotify and let the player_state_changed event handle the UI update
       await fetch(`${SPOTIFY_API}/me/player/next?device_id=${deviceIdRef.current}`, {
         method: 'POST',
         headers: {
@@ -507,14 +503,8 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
         },
       });
 
-      // Fetch updated playback state after API call
-      setTimeout(async () => {
-        const updatedState = await getPlaybackStateFromAPI();
-        if (updatedState) {
-          setPlaybackState(updatedState);
-          fetchQueue();
-        }
-      }, 200);
+      // The player_state_changed event will automatically update the UI
+      // No need to manually fetch state or queue as they'll be handled by the event listener
     } catch (error) {
       console.error('Error skipping to next track:', error);
     }
@@ -635,6 +625,11 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
 
         // Check if playlist has changed
         const playlistChanged = newPlaylistId !== currentPlaylistId;
+        // Check if track has changed
+        const trackChanged = currentTrackId !== newTrackId;
+
+        // Track changes that should trigger a queue update
+        const shouldUpdateQueue = playlistChanged || trackChanged;
 
         if (playlistChanged) {
           // PLAYLIST CHANGED LOGIC
@@ -657,7 +652,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
           // SAME PLAYLIST LOGIC (or no playlist context)
 
           // Track has changed within the same playlist
-          if (currentTrackId !== newTrackId && currentPlaylistId && newPlaylistId && newTrackId) {
+          if (trackChanged && currentPlaylistId && newPlaylistId && newTrackId) {
             console.log(`Track changed from ${currentTrackId || 'none'} to ${newTrackId}`);
 
             // Save the new track ID for the current playlist
@@ -667,6 +662,13 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
 
         // Update playback state
         setPlaybackState(newPlaybackStateFromAPI);
+
+        // Update queue when track or playlist changes
+        // Note: Unfortunately, the queue cannot be derived from the playback state
+        // and requires a separate API call
+        if (shouldUpdateQueue) {
+          fetchQueue();
+        }
       });
 
       player.addListener('initialization_error', ({ message }) => {
