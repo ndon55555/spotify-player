@@ -16,6 +16,7 @@ const eslintConfig = [
     rules: {
       eqeqeq: ['error', 'always'],
       'no-implicit-coercion': 'error',
+      '@next/next/no-img-element': 'off',
     },
   },
 ];

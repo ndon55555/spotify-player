@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './TrackProgress.css';
 
 // Format milliseconds to MM:SS format
@@ -59,7 +59,7 @@ function TrackProgress({ position, duration, isPaused, onSeek }: TrackProgressPr
   }, [position, isDragging]);
 
   // Handle animation frame updates for smooth progress bar movement
-  function updateProgressBar() {
+  const updateProgressBar = useCallback(() => {
     if (isPaused || isDragging) {
       // If paused or dragging, don't update the position
       animationFrameRef.current = null;
@@ -75,7 +75,7 @@ function TrackProgress({ position, duration, isPaused, onSeek }: TrackProgressPr
 
     // Request the next animation frame
     animationFrameRef.current = requestAnimationFrame(updateProgressBar);
-  }
+  }, [isPaused, isDragging, duration]);
 
   // Set up and clean up the animation frame
   useEffect(() => {
@@ -99,7 +99,7 @@ function TrackProgress({ position, duration, isPaused, onSeek }: TrackProgressPr
         animationFrameRef.current = null;
       }
     };
-  }, [isPaused, isDragging, duration]);
+  }, [isPaused, isDragging, duration, updateProgressBar]);
 
   // Handle click on progress bar
   function handleProgressBarClick(e: React.MouseEvent<HTMLDivElement>) {
@@ -171,7 +171,7 @@ function TrackProgress({ position, duration, isPaused, onSeek }: TrackProgressPr
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, duration, displayPosition, onSeek, isPaused]);
+  }, [isDragging, duration, displayPosition, onSeek, isPaused, updateProgressBar]);
 
   // Clean up animation frame on unmount
   useEffect(() => {
