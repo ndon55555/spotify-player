@@ -23,3 +23,29 @@
   height: 2rem;
   width: 2rem;
 }
+
+/* Navigation buttons (previous and next) */
+.navigation-button {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  border-radius: 9999px;
+  padding: 0.75rem;
+  margin: 0 0.5rem;
+  transition:
+    background-color 0.2s,
+    transform 0.1s;
+}
+
+.navigation-button:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+
+.navigation-button:active {
+  transform: scale(0.95);
+}
+
+.navigation-icon {
+  height: 1.5rem;
+  width: 1.5rem;
+}

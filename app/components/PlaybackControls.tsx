@@ -4,15 +4,34 @@ import './PlaybackControls.css';
 interface PlaybackControlsProps {
   isPaused: boolean;
   onTogglePlay: () => void;
+  onPreviousTrack: () => void;
+  onNextTrack: () => void;
 }
 
 /**
- * PlaybackControls component displays play/pause button
- * It toggles between play and pause icons based on the current playback state
+ * PlaybackControls component displays playback control buttons
+ * Including previous track, play/pause, and next track
  */
-const PlaybackControls: React.FC<PlaybackControlsProps> = ({ isPaused, onTogglePlay }) => {
+const PlaybackControls: React.FC<PlaybackControlsProps> = ({
+  isPaused,
+  onTogglePlay,
+  onPreviousTrack,
+  onNextTrack,
+}) => {
   return (
     <div className="playback-controls">
+      <button onClick={onPreviousTrack} className="navigation-button prev-button">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="navigation-icon"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+
       <button onClick={onTogglePlay} className="play-pause-button">
         {isPaused ? (
           <svg
@@ -45,6 +64,18 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({ isPaused, onToggleP
             />
           </svg>
         )}
+      </button>
+
+      <button onClick={onNextTrack} className="navigation-button next-button">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="navigation-icon"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
       </button>
     </div>
   );

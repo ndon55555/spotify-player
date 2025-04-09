@@ -465,6 +465,56 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
     await playerRef.current.setVolume(newVolume / 100);
   };
 
+  // Skip to previous track
+  async function skipToPrevious() {
+    if (!deviceIdRef.current) return;
+
+    try {
+      await fetch(`${SPOTIFY_API}/me/player/previous?device_id=${deviceIdRef.current}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${props.token}`,
+        },
+      });
+
+      // Fetch updated playback state after API call
+      setTimeout(async () => {
+        const updatedState = await getPlaybackStateFromAPI();
+        if (updatedState) {
+          setPlaybackState(updatedState);
+          fetchQueue();
+        }
+      }, 200);
+    } catch (error) {
+      console.error('Error skipping to previous track:', error);
+    }
+  }
+
+  // Skip to next track
+  async function skipToNext() {
+    if (!deviceIdRef.current) return;
+
+    try {
+      await fetch(`${SPOTIFY_API}/me/player/next?device_id=${deviceIdRef.current}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${props.token}`,
+        },
+      });
+
+      // Fetch updated playback state after API call
+      setTimeout(async () => {
+        const updatedState = await getPlaybackStateFromAPI();
+        if (updatedState) {
+          setPlaybackState(updatedState);
+          fetchQueue();
+        }
+      }, 200);
+    } catch (error) {
+      console.error('Error skipping to next track:', error);
+    }
+  }
+
   // Handle playlist selection
   const handlePlaylistSelect = async (playlist: SpotifyPlaylist) => {
     // Try to load saved position for the selected playlist
@@ -726,7 +776,14 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
           )}
 
           {/* Playback Controls */}
-          {playbackState && <PlaybackControls isPaused={isLocalPaused} onTogglePlay={togglePlay} />}
+          {playbackState && (
+            <PlaybackControls
+              isPaused={isLocalPaused}
+              onTogglePlay={togglePlay}
+              onPreviousTrack={skipToPrevious}
+              onNextTrack={skipToNext}
+            />
+          )}
 
           {/* Volume Control */}
           <VolumeControl volume={volume} onVolumeChange={handleVolumeChange} />
