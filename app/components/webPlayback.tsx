@@ -46,6 +46,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
   >([]);
   const [isLoadingQueue, setIsLoadingQueue] = useState<boolean>(false);
   const [volume, setVolume] = useState<number>(50);
+  const volumeRef = useRef<number>(50); // Add ref to track volume without triggering effects
   const [isLoadingPlaylists, setIsLoadingPlaylists] = useState<boolean>(false);
   const [isLoadingTracks, setIsLoadingTracks] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -461,7 +462,11 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
   const handleVolumeChange = async (newVolume: number) => {
     if (!playerRef.current) return;
 
+    // Update both state and ref
     setVolume(newVolume);
+    volumeRef.current = newVolume;
+
+    // Set volume on the player
     await playerRef.current.setVolume(newVolume / 100);
   };
 
@@ -579,7 +584,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
         getOAuthToken: cb => {
           cb(props.token);
         },
-        volume: volume / 100,
+        volume: volumeRef.current / 100,
       });
 
       // Store player reference
@@ -692,7 +697,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
         playerRef.current = null;
       }
     };
-  }, [props.token, volume]);
+  }, [props.token]);
 
   // Handle logout
   function handleLogout() {
