@@ -1,3 +1,10 @@
+// Extend Window interface to allow our custom property
+declare global {
+  interface Window {
+    lastManualToggleTime?: number;
+  }
+}
+
 import React, { useEffect, useRef, useState } from 'react';
 import './MainWebPlayback.css';
 import { SpotifyTrack, SpotifyPlaylist } from './types';
@@ -426,6 +433,11 @@ function WebPlayback(props: WebPlaybackProps) {
       const newPausedState = !isLocalPaused;
       setIsLocalPaused(newPausedState);
 
+      // Set a flag to indicate we're manually toggling
+      // This will prevent the useEffect from overriding our state
+      const manualToggleTime = Date.now();
+      window.lastManualToggleTime = manualToggleTime;
+
       console.log(`Toggling playback to ${newPausedState ? 'paused' : 'playing'}`);
 
       // Call Spotify API directly instead of using SDK
@@ -561,7 +573,15 @@ function WebPlayback(props: WebPlaybackProps) {
 
       // Sync local pause state with playback state when it updates from API
       if (playbackState !== null && playbackState !== undefined) {
-        setIsLocalPaused(!playbackState.is_playing);
+        // Check if we've manually toggled the play state recently
+        // If the toggle was within the last 500ms, don't override the local pause state
+        const lastToggleTime = window.lastManualToggleTime || 0;
+        const timeSinceToggle = Date.now() - lastToggleTime;
+
+        if (timeSinceToggle > 500) {
+          // Only update if it's been more than 500ms since manual toggle
+          setIsLocalPaused(!playbackState.is_playing);
+        }
 
         // Only fetch queue when track changes or other relevant operations
         // Not when just toggling play/pause
@@ -587,8 +607,21 @@ function WebPlayback(props: WebPlaybackProps) {
           const activeTrackElement =
             trackListContainerRef.current.querySelector(`.track-item.active`);
           if (activeTrackElement !== null && activeTrackElement !== undefined) {
-            // Scroll to the active track with a small offset to show some context
-            activeTrackElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Instead of scrollIntoView which affects the whole page,
+            // we'll scroll just the container element
+            const container = trackListContainerRef.current;
+            const containerRect = container.getBoundingClientRect();
+            const activeRect = activeTrackElement.getBoundingClientRect();
+
+            // Calculate the scroll position that would center the active track
+            const offsetTop =
+              activeRect.top - containerRect.top - containerRect.height / 2 + activeRect.height / 2;
+
+            // Smoothly scroll just the container
+            container.scrollBy({
+              top: offsetTop,
+              behavior: 'smooth',
+            });
           }
         }
       }
