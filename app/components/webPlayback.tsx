@@ -545,7 +545,16 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
     // Sync local pause state with playback state when it updates from API
     if (playbackState) {
       setIsLocalPaused(!playbackState.is_playing);
-      fetchQueue();
+
+      // Only fetch queue when track changes or other relevant operations
+      // Not when just toggling play/pause
+      const currentTrackId = currentPlaybackStateRef.current?.item?.id;
+      const newTrackId = playbackState.item?.id;
+      const trackChanged = currentTrackId !== newTrackId;
+
+      if (trackChanged || !currentPlaybackStateRef.current) {
+        fetchQueue();
+      }
     }
   }, [playbackState]);
 
