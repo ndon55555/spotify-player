@@ -426,7 +426,7 @@ function WebPlayback(props: WebPlaybackProps) {
 
   // Toggle play/pause
   async function togglePlay() {
-    if (!deviceIdRef.current) return;
+    if (!playerRef.current) return;
 
     try {
       // Immediately update local pause state
@@ -440,24 +440,8 @@ function WebPlayback(props: WebPlaybackProps) {
 
       console.log(`Toggling playback to ${newPausedState ? 'paused' : 'playing'}`);
 
-      // Call Spotify API directly instead of using SDK
-      if (newPausedState) {
-        // Pause playback
-        await fetch(`${SPOTIFY_API}/me/player/pause?device_id=${deviceIdRef.current}`, {
-          method: 'PUT',
-          headers: {
-            Authorization: `Bearer ${props.token}`,
-          },
-        });
-      } else {
-        // Resume playback
-        await fetch(`${SPOTIFY_API}/me/player/play?device_id=${deviceIdRef.current}`, {
-          method: 'PUT',
-          headers: {
-            Authorization: `Bearer ${props.token}`,
-          },
-        });
-      }
+      // Use the Web SDK player's togglePlay method
+      await playerRef.current.togglePlay();
 
       // Fetch updated playback state after API call
       setTimeout(async () => {
@@ -466,7 +450,7 @@ function WebPlayback(props: WebPlaybackProps) {
           console.log(`Updated playback state: is_playing=${updatedState.is_playing}`);
           setPlaybackState(updatedState);
         }
-      }, 200); // Small delay to ensure API has processed the request
+      }, 200); // Small delay to ensure the player has processed the request
     } catch (error) {
       console.error('Error toggling playback:', error);
       // Revert local state if API call fails
@@ -474,20 +458,13 @@ function WebPlayback(props: WebPlaybackProps) {
     }
   }
 
-  // Seek to position
+  // Seek to position using the Web SDK player
   async function seekToPosition(position: number) {
-    if (!deviceIdRef.current) return;
+    if (!playerRef.current) return;
 
     try {
-      await fetch(
-        `${SPOTIFY_API}/me/player/seek?position_ms=${position}&device_id=${deviceIdRef.current}`,
-        {
-          method: 'PUT',
-          headers: {
-            Authorization: `Bearer ${props.token}`,
-          },
-        }
-      );
+      // Use the Web SDK player's seek method instead of the API
+      await playerRef.current.seek(position);
     } catch (error) {
       console.error('Error seeking to position:', error);
     }
@@ -507,16 +484,11 @@ function WebPlayback(props: WebPlaybackProps) {
 
   // Skip to previous track
   async function skipToPrevious() {
-    if (!deviceIdRef.current) return;
+    if (!playerRef.current) return;
 
     try {
-      // Simply send the command to Spotify and let the player_state_changed event handle the UI update
-      await fetch(`${SPOTIFY_API}/me/player/previous?device_id=${deviceIdRef.current}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${props.token}`,
-        },
-      });
+      // Use the Web SDK player's previousTrack method
+      await playerRef.current.previousTrack();
 
       // The player_state_changed event will automatically update the UI
       // No need to manually fetch state or queue as they'll be handled by the event listener
@@ -527,16 +499,11 @@ function WebPlayback(props: WebPlaybackProps) {
 
   // Skip to next track
   async function skipToNext() {
-    if (!deviceIdRef.current) return;
+    if (!playerRef.current) return;
 
     try {
-      // Simply send the command to Spotify and let the player_state_changed event handle the UI update
-      await fetch(`${SPOTIFY_API}/me/player/next?device_id=${deviceIdRef.current}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${props.token}`,
-        },
-      });
+      // Use the Web SDK player's nextTrack method
+      await playerRef.current.nextTrack();
 
       // The player_state_changed event will automatically update the UI
       // No need to manually fetch state or queue as they'll be handled by the event listener
