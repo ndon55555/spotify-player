@@ -6,7 +6,7 @@ import TrackItem from './TrackItem';
 interface QueueDisplayProps {
   queueTracks: Array<SpotifyApi.TrackObjectFull | SpotifyApi.EpisodeObjectFull>;
   isLoading: boolean;
-  onPlay: (trackUri: string) => void;
+  onPlay: (trackUri: string, playlistUri?: string) => void;
 }
 
 /**

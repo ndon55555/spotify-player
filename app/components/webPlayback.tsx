@@ -352,20 +352,33 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
   };
 
   // Play a specific track
-  const playTrack = async (trackUri: string) => {
+  const playTrack = async (trackUri: string, playlistUri?: string) => {
     if (!deviceIdRef.current) return;
 
     try {
-      await fetch(`${SPOTIFY_API}/me/player/play?device_id=${deviceIdRef.current}`, {
+      // If playlistUri is provided, play the track in the context of that playlist
+      // Prepare the common fetch options
+      const body = playlistUri
+        ? {
+            context_uri: playlistUri,
+            offset: {
+              uri: trackUri,
+            },
+          }
+        : {
+            uris: [trackUri],
+          };
+      const fetchOptions = {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${props.token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          uris: [trackUri],
-        }),
-      });
+        body: JSON.stringify(body),
+      };
+
+      // Make a single fetch call with the appropriate body
+      await fetch(`${SPOTIFY_API}/me/player/play?device_id=${deviceIdRef.current}`, fetchOptions);
 
       // Fetch the updated queue after playing a track
       fetchQueue();
@@ -825,6 +838,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
                       isActive={playbackState?.item?.id === track.id}
                       onPlay={playTrack}
                       index={index + 1}
+                      playlistUri={activePlaylist?.uri}
                     />
                   ))}
                 </div>
