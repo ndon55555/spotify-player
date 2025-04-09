@@ -170,7 +170,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
 
       const savedPosition: PlaylistPosition | null = await response.json();
 
-      if (savedPosition) {
+      if (savedPosition !== null) {
         console.log(`Loaded position for playlist ${playlistId}: track ${savedPosition.trackId}`);
 
         // Play the track from the beginning (not using the saved position)
@@ -234,9 +234,9 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
         fetchPlaylistTracks(firstPlaylist.id);
 
         // Try to load saved position for the first playlist
-        if (userIdRef.current) {
+        if (userIdRef.current !== null && userIdRef.current !== undefined) {
           loadPlaylistPosition(firstPlaylist.id).then(async savedPosition => {
-            if (!savedPosition) {
+            if (savedPosition === null || savedPosition === undefined) {
               // If no saved position, just play from the beginning
               await playPlaylist(firstPlaylist.uri);
             }
@@ -247,7 +247,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
             // Fetch the playback state to ensure UI is in sync
             setTimeout(async () => {
               const state = await getPlaybackStateFromAPI();
-              if (state) {
+              if (state !== null && state !== undefined) {
                 console.log(`Initial playback state: is_playing=${state.is_playing}`);
                 setPlaybackState(state);
               }
@@ -299,11 +299,11 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
       const data = await response.json();
       let tracks: SpotifyTrack[] = [];
 
-      if (data.items) {
+      if (data.items !== undefined && data.items !== null) {
         tracks = data.items.map((item: { track: SpotifyTrack }) => item.track).filter(Boolean);
 
         // If there are more tracks, fetch them recursively
-        if (data.next) {
+        if (data.next !== undefined && data.next !== null) {
           const nextTracks = await fetchAllPlaylistTracks(playlistId, data.next);
           tracks = [...tracks, ...nextTracks];
         }
@@ -341,7 +341,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
     setIsLoadingQueue(true);
     try {
       const queueData = await getQueueFromAPI();
-      if (queueData) {
+      if (queueData !== null && queueData !== undefined) {
         setQueueTracks(queueData.queue);
       }
     } catch (error) {
@@ -440,7 +440,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
       // Fetch updated playback state after API call
       setTimeout(async () => {
         const updatedState = await getPlaybackStateFromAPI();
-        if (updatedState) {
+        if (updatedState !== null && updatedState !== undefined) {
           console.log(`Updated playback state: is_playing=${updatedState.is_playing}`);
           setPlaybackState(updatedState);
         }
@@ -529,14 +529,14 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
     const savedPosition = await loadPlaylistPosition(playlist.id);
 
     // If no saved position, just play the playlist from the beginning
-    if (!savedPosition) {
+    if (savedPosition === null || savedPosition === undefined) {
       playPlaylist(playlist.uri);
     }
   };
 
   // Effect to fetch user profile when component mounts
   useEffect(() => {
-    if (props.token) {
+    if (props.token !== undefined && props.token !== null && props.token !== '') {
       fetchUserProfile();
     }
   }, [props.token]);
@@ -546,7 +546,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
     currentPlaybackStateRef.current = playbackState;
 
     // Sync local pause state with playback state when it updates from API
-    if (playbackState) {
+    if (playbackState !== null && playbackState !== undefined) {
       setIsLocalPaused(!playbackState.is_playing);
 
       // Only fetch queue when track changes or other relevant operations
@@ -566,10 +566,10 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
     if (playlistTracks.length > 0 && playbackState?.item && trackListContainerRef.current) {
       // Find the active track element
       const activeTrackId = playbackState.item.id;
-      if (activeTrackId) {
+      if (activeTrackId !== undefined && activeTrackId !== null && activeTrackId !== '') {
         const activeTrackElement =
           trackListContainerRef.current.querySelector(`.track-item.active`);
-        if (activeTrackElement) {
+        if (activeTrackElement !== null && activeTrackElement !== undefined) {
           // Scroll to the active track with a small offset to show some context
           activeTrackElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
@@ -617,10 +617,10 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
       });
 
       // Player state changed
-      player.addListener('player_state_changed', async _state => {
+      player.addListener('player_state_changed', async () => {
         // Get the track ID from the API (in the context of the playlist)
         const newPlaybackStateFromAPI = await getPlaybackStateFromAPI();
-        if (!newPlaybackStateFromAPI) return;
+        if (newPlaybackStateFromAPI === null || newPlaybackStateFromAPI === undefined) return;
 
         // Get the current track ID
         const newTrackId = newPlaybackStateFromAPI.item?.id;

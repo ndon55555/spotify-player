@@ -69,7 +69,7 @@ const TrackProgress: React.FC<TrackProgressProps> = ({ position, duration, isPau
   useEffect(() => {
     // If paused or dragging, don't start the animation
     if (isPaused || isDragging) {
-      if (animationFrameRef.current) {
+      if (animationFrameRef.current !== null && animationFrameRef.current !== undefined) {
         cancelAnimationFrame(animationFrameRef.current);
         animationFrameRef.current = null;
       }
@@ -82,7 +82,7 @@ const TrackProgress: React.FC<TrackProgressProps> = ({ position, duration, isPau
 
     // Clean up on unmount or when dependencies change
     return () => {
-      if (animationFrameRef.current) {
+      if (animationFrameRef.current !== null && animationFrameRef.current !== undefined) {
         cancelAnimationFrame(animationFrameRef.current);
         animationFrameRef.current = null;
       }
@@ -107,7 +107,7 @@ const TrackProgress: React.FC<TrackProgressProps> = ({ position, duration, isPau
     setIsDragging(true);
 
     // Cancel any ongoing animation
-    if (animationFrameRef.current) {
+    if (animationFrameRef.current !== null && animationFrameRef.current !== undefined) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
@@ -177,7 +177,7 @@ const TrackProgress: React.FC<TrackProgressProps> = ({ position, duration, isPau
   // Clean up animation frame on unmount
   useEffect(() => {
     return () => {
-      if (animationFrameRef.current) {
+      if (animationFrameRef.current !== null && animationFrameRef.current !== undefined) {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };

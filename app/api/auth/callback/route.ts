@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const code = url.searchParams.get('code');
 
-  if (!code) {
+  if (code === null || code === undefined || code === '') {
     return NextResponse.json({ error: 'Code not provided' }, { status: 400 });
   }
 
