@@ -1,6 +1,29 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './TrackProgress.css';
 
+// Format milliseconds to MM:SS format
+function formatTime(ms: number): string {
+  if (!ms || isNaN(ms)) return '0:00';
+
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+// Calculate position from mouse event
+function calculatePositionFromMouse(
+  e: MouseEvent | React.MouseEvent,
+  element: HTMLDivElement,
+  duration: number
+): number {
+  const rect = element.getBoundingClientRect();
+  const mousePosition = e.clientX - rect.left;
+  const percentage = Math.max(0, Math.min(1, mousePosition / rect.width));
+  return Math.floor(percentage * duration);
+}
+
 interface TrackProgressProps {
   position: number; // Current position in milliseconds
   duration: number; // Total duration in milliseconds
@@ -12,7 +35,7 @@ interface TrackProgressProps {
  * TrackProgress component displays a progress bar for the current track
  * Shows current position, total duration, and allows seeking
  */
-const TrackProgress: React.FC<TrackProgressProps> = ({ position, duration, isPaused, onSeek }) => {
+function TrackProgress({ position, duration, isPaused, onSeek }: TrackProgressProps) {
   // State to track the displayed position (which may differ from actual position during dragging)
   const [displayPosition, setDisplayPosition] = useState(position);
   // State to track if user is dragging the progress handle
@@ -23,17 +46,6 @@ const TrackProgress: React.FC<TrackProgressProps> = ({ position, duration, isPau
   const lastUpdateTimeRef = useRef<number>(Date.now());
   // Ref to store the animation frame ID
   const animationFrameRef = useRef<number | null>(null);
-
-  // Format milliseconds to MM:SS format
-  const formatTime = (ms: number): string => {
-    if (!ms || isNaN(ms)) return '0:00';
-
-    const totalSeconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
 
   // Calculate progress percentage for the progress bar width
   const progressPercentage = duration > 0 ? (displayPosition / duration) * 100 : 0;
@@ -47,7 +59,7 @@ const TrackProgress: React.FC<TrackProgressProps> = ({ position, duration, isPau
   }, [position, isDragging]);
 
   // Handle animation frame updates for smooth progress bar movement
-  const updateProgressBar = () => {
+  function updateProgressBar() {
     if (isPaused || isDragging) {
       // If paused or dragging, don't update the position
       animationFrameRef.current = null;
@@ -63,7 +75,7 @@ const TrackProgress: React.FC<TrackProgressProps> = ({ position, duration, isPau
 
     // Request the next animation frame
     animationFrameRef.current = requestAnimationFrame(updateProgressBar);
-  };
+  }
 
   // Set up and clean up the animation frame
   useEffect(() => {
@@ -90,20 +102,16 @@ const TrackProgress: React.FC<TrackProgressProps> = ({ position, duration, isPau
   }, [isPaused, isDragging, duration]);
 
   // Handle click on progress bar
-  const handleProgressBarClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  function handleProgressBarClick(e: React.MouseEvent<HTMLDivElement>) {
     if (!progressBarRef.current) return;
 
-    const rect = progressBarRef.current.getBoundingClientRect();
-    const clickPosition = e.clientX - rect.left;
-    const percentage = clickPosition / rect.width;
-    const newPosition = Math.floor(percentage * duration);
-
+    const newPosition = calculatePositionFromMouse(e, progressBarRef.current, duration);
     setDisplayPosition(newPosition);
     onSeek(newPosition);
-  };
+  }
 
   // Handle drag start
-  const handleDragStart = () => {
+  function handleDragStart() {
     setIsDragging(true);
 
     // Cancel any ongoing animation
@@ -111,10 +119,10 @@ const TrackProgress: React.FC<TrackProgressProps> = ({ position, duration, isPau
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
-  };
+  }
 
   // Handle drag end
-  const handleDragEnd = () => {
+  function handleDragEnd() {
     if (isDragging) {
       onSeek(displayPosition);
       setIsDragging(false);
@@ -125,36 +133,27 @@ const TrackProgress: React.FC<TrackProgressProps> = ({ position, duration, isPau
         animationFrameRef.current = requestAnimationFrame(updateProgressBar);
       }
     }
-  };
+  }
 
   // Handle drag movement
-  const handleDrag = (e: React.MouseEvent<HTMLDivElement>) => {
+  function handleDrag(e: React.MouseEvent<HTMLDivElement>) {
     if (!isDragging || !progressBarRef.current) return;
 
-    const rect = progressBarRef.current.getBoundingClientRect();
-    const mousePosition = e.clientX - rect.left;
-    const percentage = Math.max(0, Math.min(1, mousePosition / rect.width));
-    const newPosition = Math.floor(percentage * duration);
-
+    const newPosition = calculatePositionFromMouse(e, progressBarRef.current, duration);
     setDisplayPosition(newPosition);
-  };
+  }
 
   // Set up event listeners for drag outside the component
   useEffect(() => {
     if (!isDragging) return;
 
-    const handleMouseMove = (e: MouseEvent) => {
+    function handleMouseMove(e: MouseEvent) {
       if (!progressBarRef.current) return;
-
-      const rect = progressBarRef.current.getBoundingClientRect();
-      const mousePosition = e.clientX - rect.left;
-      const percentage = Math.max(0, Math.min(1, mousePosition / rect.width));
-      const newPosition = Math.floor(percentage * duration);
-
+      const newPosition = calculatePositionFromMouse(e, progressBarRef.current, duration);
       setDisplayPosition(newPosition);
-    };
+    }
 
-    const handleMouseUp = () => {
+    function handleMouseUp() {
       onSeek(displayPosition);
       setIsDragging(false);
 
@@ -163,7 +162,7 @@ const TrackProgress: React.FC<TrackProgressProps> = ({ position, duration, isPau
         lastUpdateTimeRef.current = Date.now();
         animationFrameRef.current = requestAnimationFrame(updateProgressBar);
       }
-    };
+    }
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
@@ -207,6 +206,6 @@ const TrackProgress: React.FC<TrackProgressProps> = ({ position, duration, isPau
       <div className="track-time total-time">{formatTime(duration)}</div>
     </div>
   );
-};
+}
 
 export default TrackProgress;

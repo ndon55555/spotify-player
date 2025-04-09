@@ -30,7 +30,7 @@ const SPOTIFY_PLAYER_SCRIPT_ID = 'spotify-player-sdk';
 
 const SPOTIFY_API = 'https://api.spotify.com/v1';
 
-const WebPlayback: React.FC<WebPlaybackProps> = props => {
+function WebPlayback(props: WebPlaybackProps) {
   const playerRef = useRef<Spotify.Player | null>(null);
   const deviceIdRef = useRef<string | null>(null);
   const [playbackState, setPlaybackState] = useState<SpotifyApi.CurrentPlaybackResponse | null>(
@@ -156,7 +156,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
   }
 
   // Load the saved position for a playlist
-  const loadPlaylistPosition = async (playlistId: string): Promise<PlaylistPosition | null> => {
+  async function loadPlaylistPosition(playlistId: string): Promise<PlaylistPosition | null> {
     if (!userIdRef.current || !deviceIdRef.current) return null;
 
     try {
@@ -196,7 +196,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
     }
 
     return null;
-  };
+  }
 
   // Fetch playlists data from Spotify API
   async function getPlaylistsData() {
@@ -219,6 +219,45 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
     }
   }
 
+  // Helper function to start playlist from the beginning
+  async function startPlaylistFromBeginning(playlist: SpotifyPlaylist) {
+    await playPlaylist(playlist.uri);
+
+    // Set isLocalPaused to false since we're starting playback
+    setIsLocalPaused(false);
+
+    // Fetch the playback state to ensure UI is in sync
+    setTimeout(async function updateInitialPlaybackState() {
+      const state = await getPlaybackStateFromAPI();
+      if (state !== null && state !== undefined) {
+        console.log(`Initial playback state: is_playing=${state.is_playing}`);
+        setPlaybackState(state);
+      }
+    }, 500);
+  }
+
+  // Helper function to handle playlist position
+  async function handlePlaylistPosition(playlist: SpotifyPlaylist) {
+    const savedPosition = await loadPlaylistPosition(playlist.id);
+
+    if (savedPosition === null || savedPosition === undefined) {
+      // If no saved position, just play from the beginning
+      await playPlaylist(playlist.uri);
+    }
+
+    // Set isLocalPaused to false since we're starting playback
+    setIsLocalPaused(false);
+
+    // Fetch the playback state to ensure UI is in sync
+    setTimeout(async function updatePlaybackState() {
+      const state = await getPlaybackStateFromAPI();
+      if (state !== null && state !== undefined) {
+        console.log(`Initial playback state: is_playing=${state.is_playing}`);
+        setPlaybackState(state);
+      }
+    }, 500);
+  }
+
   // Initialize playlists and related state
   async function initializePlaylistsAndState() {
     setIsLoadingPlaylists(true);
@@ -235,39 +274,10 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
 
         // Try to load saved position for the first playlist
         if (userIdRef.current !== null && userIdRef.current !== undefined) {
-          loadPlaylistPosition(firstPlaylist.id).then(async savedPosition => {
-            if (savedPosition === null || savedPosition === undefined) {
-              // If no saved position, just play from the beginning
-              await playPlaylist(firstPlaylist.uri);
-            }
-
-            // Set isLocalPaused to false since we're starting playback
-            setIsLocalPaused(false);
-
-            // Fetch the playback state to ensure UI is in sync
-            setTimeout(async () => {
-              const state = await getPlaybackStateFromAPI();
-              if (state !== null && state !== undefined) {
-                console.log(`Initial playback state: is_playing=${state.is_playing}`);
-                setPlaybackState(state);
-              }
-            }, 500);
-          });
+          await handlePlaylistPosition(firstPlaylist);
         } else {
           // If no user ID yet, just play from the beginning
-          await playPlaylist(firstPlaylist.uri);
-
-          // Set isLocalPaused to false since we're starting playback
-          setIsLocalPaused(false);
-
-          // Fetch the playback state to ensure UI is in sync
-          setTimeout(async () => {
-            const state = await getPlaybackStateFromAPI();
-            if (state) {
-              console.log(`Initial playback state: is_playing=${state.is_playing}`);
-              setPlaybackState(state);
-            }
-          }, 500);
+          await startPlaylistFromBeginning(firstPlaylist);
         }
       }
     } catch (error) {
@@ -472,7 +482,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
   }
 
   // Set volume
-  const handleVolumeChange = async (newVolume: number) => {
+  async function handleVolumeChange(newVolume: number) {
     if (!playerRef.current) return;
 
     // Update both state and ref
@@ -481,7 +491,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
 
     // Set volume on the player
     await playerRef.current.setVolume(newVolume / 100);
-  };
+  }
 
   // Skip to previous track
   async function skipToPrevious() {
@@ -524,7 +534,7 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
   }
 
   // Handle playlist selection
-  const handlePlaylistSelect = async (playlist: SpotifyPlaylist) => {
+  async function handlePlaylistSelect(playlist: SpotifyPlaylist) {
     // Try to load saved position for the selected playlist
     const savedPosition = await loadPlaylistPosition(playlist.id);
 
@@ -532,196 +542,226 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
     if (savedPosition === null || savedPosition === undefined) {
       playPlaylist(playlist.uri);
     }
-  };
+  }
 
   // Effect to fetch user profile when component mounts
-  useEffect(() => {
-    if (props.token !== undefined && props.token !== null && props.token !== '') {
-      fetchUserProfile();
-    }
-  }, [props.token]);
+  useEffect(
+    function initializeUserProfile() {
+      if (props.token !== undefined && props.token !== null && props.token !== '') {
+        fetchUserProfile();
+      }
+    },
+    [props.token]
+  );
 
   // Effect to update the ref whenever playbackState changes
-  useEffect(() => {
-    currentPlaybackStateRef.current = playbackState;
+  useEffect(
+    function syncPlaybackState() {
+      currentPlaybackStateRef.current = playbackState;
 
-    // Sync local pause state with playback state when it updates from API
-    if (playbackState !== null && playbackState !== undefined) {
-      setIsLocalPaused(!playbackState.is_playing);
+      // Sync local pause state with playback state when it updates from API
+      if (playbackState !== null && playbackState !== undefined) {
+        setIsLocalPaused(!playbackState.is_playing);
 
-      // Only fetch queue when track changes or other relevant operations
-      // Not when just toggling play/pause
-      const currentTrackId = currentPlaybackStateRef.current?.item?.id;
-      const newTrackId = playbackState.item?.id;
-      const trackChanged = currentTrackId !== newTrackId;
-
-      if (trackChanged || !currentPlaybackStateRef.current) {
-        fetchQueue();
-      }
-    }
-  }, [playbackState]);
-
-  // Effect to scroll to the active track when playlist changes or tracks are loaded
-  useEffect(() => {
-    if (playlistTracks.length > 0 && playbackState?.item && trackListContainerRef.current) {
-      // Find the active track element
-      const activeTrackId = playbackState.item.id;
-      if (activeTrackId !== undefined && activeTrackId !== null && activeTrackId !== '') {
-        const activeTrackElement =
-          trackListContainerRef.current.querySelector(`.track-item.active`);
-        if (activeTrackElement !== null && activeTrackElement !== undefined) {
-          // Scroll to the active track with a small offset to show some context
-          activeTrackElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }
-    }
-  }, [activePlaylist, playlistTracks.length]);
-
-  useEffect(() => {
-    // Check if script already exists
-    if (!document.getElementById(SPOTIFY_PLAYER_SCRIPT_ID)) {
-      const script = document.createElement('script');
-      script.id = SPOTIFY_PLAYER_SCRIPT_ID;
-      script.src = 'https://sdk.scdn.co/spotify-player.js';
-      script.async = true;
-      document.body.appendChild(script);
-    }
-
-    function initializePlayer() {
-      // If SDK is not ready yet, this will be called later when it is
-      if (!window.Spotify) return;
-
-      const player = new Spotify.Player({
-        name: 'My Web Playback SDK Player',
-        getOAuthToken: cb => {
-          cb(props.token);
-        },
-        volume: volumeRef.current / 100,
-      });
-
-      // Store player reference
-      playerRef.current = player;
-
-      // Ready
-      player.addListener('ready', ({ device_id }) => {
-        console.log('Ready with Device ID', device_id);
-        deviceIdRef.current = device_id;
-
-        // Fetch playlists once we have a device ID
-        initializePlaylistsAndState();
-      });
-
-      // Not Ready
-      player.addListener('not_ready', ({ device_id }) => {
-        console.log('Not ready with Device ID', device_id);
-      });
-
-      // Player state changed
-      player.addListener('player_state_changed', async () => {
-        // Get the track ID from the API (in the context of the playlist)
-        const newPlaybackStateFromAPI = await getPlaybackStateFromAPI();
-        if (newPlaybackStateFromAPI === null || newPlaybackStateFromAPI === undefined) return;
-
-        // Get the current track ID
-        const newTrackId = newPlaybackStateFromAPI.item?.id;
+        // Only fetch queue when track changes or other relevant operations
+        // Not when just toggling play/pause
         const currentTrackId = currentPlaybackStateRef.current?.item?.id;
-
-        // Get playlist IDs
-        const newPlaylistId = newPlaybackStateFromAPI.context?.uri?.startsWith('spotify:playlist:')
-          ? newPlaybackStateFromAPI.context.uri.split(':')[2]
-          : null;
-        const currentPlaylistId = currentPlaybackStateRef.current?.context?.uri?.startsWith(
-          'spotify:playlist:'
-        )
-          ? currentPlaybackStateRef.current.context.uri.split(':')[2]
-          : null;
-
-        // Check if playlist has changed
-        const playlistChanged = newPlaylistId !== currentPlaylistId;
-        // Check if track has changed
+        const newTrackId = playbackState.item?.id;
         const trackChanged = currentTrackId !== newTrackId;
 
-        // Track changes that should trigger a queue update
-        const shouldUpdateQueue = playlistChanged || trackChanged;
-
-        if (playlistChanged) {
-          // PLAYLIST CHANGED LOGIC
-          console.log(
-            `Playlist changed from ${currentPlaylistId || 'none'} to ${newPlaylistId || 'none'}`
-          );
-
-          // If we have a new playlist, fetch its tracks
-          if (newPlaylistId) {
-            console.log(`Fetching tracks for new playlist: ${newPlaylistId}`);
-            fetchPlaylistTracks(newPlaylistId);
-          }
-
-          // Save the current track ID for the previous playlist
-          if (currentTrackId && currentPlaylistId && userIdRef.current) {
-            // Save the track ID (position is always 0)
-            savePlaylistPosition(currentPlaylistId, currentTrackId);
-          }
-        } else {
-          // SAME PLAYLIST LOGIC (or no playlist context)
-
-          // Track has changed within the same playlist
-          if (trackChanged && currentPlaylistId && newPlaylistId && newTrackId) {
-            console.log(`Track changed from ${currentTrackId || 'none'} to ${newTrackId}`);
-
-            // Save the new track ID for the current playlist
-            savePlaylistPosition(newPlaylistId, newTrackId);
-          }
-        }
-
-        // Update playback state
-        setPlaybackState(newPlaybackStateFromAPI);
-
-        // Update queue when track or playlist changes
-        // Note: Unfortunately, the queue cannot be derived from the playback state
-        // and requires a separate API call
-        if (shouldUpdateQueue) {
+        if (trackChanged || !currentPlaybackStateRef.current) {
           fetchQueue();
         }
-      });
-
-      player.addListener('initialization_error', ({ message }) => {
-        console.error(message);
-      });
-
-      player.addListener('authentication_error', ({ message }) => {
-        console.error(message);
-      });
-
-      player.addListener('account_error', ({ message }) => {
-        console.error(message);
-      });
-
-      // Connect to the player!
-      player.connect().then(success => {
-        if (success) {
-          console.log('The Web Playback SDK successfully connected to Spotify!');
-        } else {
-          console.error('The Web Playback SDK could not connect to Spotify.');
-        }
-      });
-    }
-
-    // Try to initialize player immediately if SDK is already loaded
-    if (window.Spotify) {
-      initializePlayer();
-    } else {
-      // Otherwise set up callback for when SDK loads
-      window.onSpotifyWebPlaybackSDKReady = initializePlayer;
-    }
-
-    // Cleanup function to disconnect player when component unmounts or token changes
-    return () => {
-      if (playerRef.current) {
-        playerRef.current.disconnect();
-        playerRef.current = null;
       }
-    };
-  }, [props.token]);
+    },
+    [playbackState]
+  );
+
+  // Effect to scroll to the active track when playlist changes or tracks are loaded
+  useEffect(
+    function scrollToActiveTrack() {
+      if (playlistTracks.length > 0 && playbackState?.item && trackListContainerRef.current) {
+        // Find the active track element
+        const activeTrackId = playbackState.item.id;
+        if (activeTrackId !== undefined && activeTrackId !== null && activeTrackId !== '') {
+          const activeTrackElement =
+            trackListContainerRef.current.querySelector(`.track-item.active`);
+          if (activeTrackElement !== null && activeTrackElement !== undefined) {
+            // Scroll to the active track with a small offset to show some context
+            activeTrackElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      }
+    },
+    [activePlaylist, playlistTracks.length, playbackState?.item]
+  );
+
+  useEffect(
+    function initializeSpotifySDK() {
+      // Check if script already exists
+      if (!document.getElementById(SPOTIFY_PLAYER_SCRIPT_ID)) {
+        const script = document.createElement('script');
+        script.id = SPOTIFY_PLAYER_SCRIPT_ID;
+        script.src = 'https://sdk.scdn.co/spotify-player.js';
+        script.async = true;
+        document.body.appendChild(script);
+      }
+
+      function initializePlayer() {
+        // If SDK is not ready yet, this will be called later when it is
+        if (!window.Spotify) return;
+
+        function getOAuthToken(cb: (token: string) => void) {
+          cb(props.token);
+        }
+
+        const player = new Spotify.Player({
+          name: 'My Web Playback SDK Player',
+          getOAuthToken,
+          volume: volumeRef.current / 100,
+        });
+
+        // Store player reference
+        playerRef.current = player;
+
+        // Ready handler function
+        function handlePlayerReady({ device_id }: Spotify.WebPlaybackInstance) {
+          console.log('Ready with Device ID', device_id);
+          deviceIdRef.current = device_id;
+
+          // Fetch playlists once we have a device ID
+          initializePlaylistsAndState();
+        }
+
+        // Not Ready handler function
+        function handlePlayerNotReady({ device_id }: Spotify.WebPlaybackInstance) {
+          console.log('Not ready with Device ID', device_id);
+        }
+
+        // Add event listeners
+        player.addListener('ready', handlePlayerReady);
+        player.addListener('not_ready', handlePlayerNotReady);
+
+        // Player state changed handler function
+        async function handlePlayerStateChanged() {
+          // Get the track ID from the API (in the context of the playlist)
+          const newPlaybackStateFromAPI = await getPlaybackStateFromAPI();
+          if (newPlaybackStateFromAPI === null || newPlaybackStateFromAPI === undefined) return;
+
+          // Get the current track ID
+          const newTrackId = newPlaybackStateFromAPI.item?.id;
+          const currentTrackId = currentPlaybackStateRef.current?.item?.id;
+
+          // Get playlist IDs
+          const newPlaylistId = newPlaybackStateFromAPI.context?.uri?.startsWith(
+            'spotify:playlist:'
+          )
+            ? newPlaybackStateFromAPI.context.uri.split(':')[2]
+            : null;
+          const currentPlaylistId = currentPlaybackStateRef.current?.context?.uri?.startsWith(
+            'spotify:playlist:'
+          )
+            ? currentPlaybackStateRef.current.context.uri.split(':')[2]
+            : null;
+
+          // Check if playlist has changed
+          const playlistChanged = newPlaylistId !== currentPlaylistId;
+          // Check if track has changed
+          const trackChanged = currentTrackId !== newTrackId;
+
+          // Track changes that should trigger a queue update
+          const shouldUpdateQueue = playlistChanged || trackChanged;
+
+          if (playlistChanged) {
+            // PLAYLIST CHANGED LOGIC
+            console.log(
+              `Playlist changed from ${currentPlaylistId || 'none'} to ${newPlaylistId || 'none'}`
+            );
+
+            // If we have a new playlist, fetch its tracks
+            if (newPlaylistId) {
+              console.log(`Fetching tracks for new playlist: ${newPlaylistId}`);
+              fetchPlaylistTracks(newPlaylistId);
+            }
+
+            // Save the current track ID for the previous playlist
+            if (currentTrackId && currentPlaylistId && userIdRef.current) {
+              // Save the track ID (position is always 0)
+              savePlaylistPosition(currentPlaylistId, currentTrackId);
+            }
+          } else {
+            // SAME PLAYLIST LOGIC (or no playlist context)
+
+            // Track has changed within the same playlist
+            if (trackChanged && currentPlaylistId && newPlaylistId && newTrackId) {
+              console.log(`Track changed from ${currentTrackId || 'none'} to ${newTrackId}`);
+
+              // Save the new track ID for the current playlist
+              savePlaylistPosition(newPlaylistId, newTrackId);
+            }
+          }
+
+          // Update playback state
+          setPlaybackState(newPlaybackStateFromAPI);
+
+          // Update queue when track or playlist changes
+          // Note: Unfortunately, the queue cannot be derived from the playback state
+          // and requires a separate API call
+          if (shouldUpdateQueue) {
+            fetchQueue();
+          }
+        }
+
+        // Error handler functions
+        function handleInitializationError({ message }: { message: string }) {
+          console.error(message);
+        }
+
+        function handleAuthenticationError({ message }: { message: string }) {
+          console.error(message);
+        }
+
+        function handleAccountError({ message }: { message: string }) {
+          console.error(message);
+        }
+
+        // Connection result handler
+        function handleConnectionResult(success: boolean) {
+          if (success) {
+            console.log('The Web Playback SDK successfully connected to Spotify!');
+          } else {
+            console.error('The Web Playback SDK could not connect to Spotify.');
+          }
+        }
+
+        // Add all event listeners
+        player.addListener('player_state_changed', handlePlayerStateChanged);
+        player.addListener('initialization_error', handleInitializationError);
+        player.addListener('authentication_error', handleAuthenticationError);
+        player.addListener('account_error', handleAccountError);
+
+        // Connect to the player!
+        player.connect().then(handleConnectionResult);
+      }
+
+      // Try to initialize player immediately if SDK is already loaded
+      if (window.Spotify) {
+        initializePlayer();
+      } else {
+        // Otherwise set up callback for when SDK loads
+        window.onSpotifyWebPlaybackSDKReady = initializePlayer;
+      }
+
+      // Cleanup function to disconnect player when component unmounts or token changes
+      return function cleanupPlayer() {
+        if (playerRef.current) {
+          playerRef.current.disconnect();
+          playerRef.current = null;
+        }
+      };
+    },
+    [props.token]
+  );
 
   // Handle logout
   function handleLogout() {
@@ -849,6 +889,6 @@ const WebPlayback: React.FC<WebPlaybackProps> = props => {
       </div>
     </div>
   );
-};
+}
 
 export default WebPlayback;
