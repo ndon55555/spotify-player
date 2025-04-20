@@ -2,6 +2,7 @@
 
 import Login from './components/login';
 import WebPlayback from './components/webPlayback';
+import TokenTestButton from './components/TokenTestButton';
 import { useSpotifyAuth } from './utils/spotifyAuth';
 
 const Home: React.FC = () => {
@@ -20,7 +21,20 @@ const Home: React.FC = () => {
     );
   }
 
-  return <>{!token ? <Login /> : <WebPlayback token={token} refreshToken={refreshToken} />}</>;
+  return (
+    <>
+      {!token ? (
+        <Login />
+      ) : (
+        <div className="flex flex-col">
+          <WebPlayback token={token} refreshToken={refreshToken} />
+          <div className="container mx-auto">
+            <TokenTestButton refreshToken={refreshToken} />
+          </div>
+        </div>
+      )}
+    </>
+  );
 };
 
 export default Home;
