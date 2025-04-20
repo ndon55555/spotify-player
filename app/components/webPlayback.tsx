@@ -815,8 +815,8 @@ function WebPlayback(props: WebPlaybackProps) {
     // Clear token from localStorage if it's stored there
     localStorage.removeItem('spotify_token');
 
-    // Redirect to login page
-    window.location.href = '/api/auth/login';
+    // Redirect to the server-side logout endpoint that will clear cookies
+    window.location.href = '/api/auth/logout';
   }
 
   return (
