@@ -479,13 +479,25 @@ function WebPlayback(props: WebPlaybackProps) {
     if (!playerRef.current) return;
 
     try {
-      // Immediately update the API state to reflect the new position
+      // Immediately update both API and SDK states to reflect the new position
+      // This ensures the UI updates immediately without waiting for callbacks
       if (apiState) {
         setApiState(prevState => {
           if (prevState === null) return null;
           return {
             ...prevState,
             progress_ms: position,
+          };
+        });
+      }
+
+      // Also update the SDK state if available to ensure perfect synchronization
+      if (sdkState) {
+        setSdkState(prevState => {
+          if (prevState === null) return null;
+          return {
+            ...prevState,
+            position: position,
           };
         });
       }
@@ -896,7 +908,7 @@ function WebPlayback(props: WebPlaybackProps) {
           {/* Track Progress */}
           {apiState?.item && (
             <TrackProgress
-              position={apiState.progress_ms || 0}
+              position={sdkState?.position || apiState.progress_ms || 0}
               duration={apiState.item.duration_ms}
               isPaused={isLocalPaused}
               onSeek={seekToPosition}
