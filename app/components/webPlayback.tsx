@@ -45,7 +45,11 @@ function WebPlayback(props: WebPlaybackProps) {
   );
   // Local state to track play/pause state immediately
   const [isLocalPaused, setIsLocalPaused] = useState<boolean>(true);
-  const currentPlaybackStateRef = useRef<SpotifyApi.CurrentPlaybackResponse | null>(null);
+  // Keep track of the current player state from the SDK
+  const currentPlayerStateRef = useRef<Spotify.PlaybackState | null>(null);
+  // Track just what we need for change detection - much more efficient
+  const previousTrackRef = useRef<string | null>(null);
+  const previousPlaylistRef = useRef<string | null>(null);
   const [playlists, setPlaylists] = useState<SpotifyPlaylist[]>([]);
   const [playlistTracks, setPlaylistTracks] = useState<SpotifyTrack[]>([]);
   const [queueTracks, setQueueTracks] = useState<
@@ -238,6 +242,7 @@ function WebPlayback(props: WebPlaybackProps) {
       const state = await getPlaybackStateFromAPI();
       if (state !== null && state !== undefined) {
         console.log(`Initial playback state: is_playing=${state.is_playing}`);
+        // Always update with the latest state
         setPlaybackState(state);
       }
     }, 500);
@@ -260,6 +265,7 @@ function WebPlayback(props: WebPlaybackProps) {
       const state = await getPlaybackStateFromAPI();
       if (state !== null && state !== undefined) {
         console.log(`Initial playback state: is_playing=${state.is_playing}`);
+        // Always update with the latest state
         setPlaybackState(state);
       }
     }, 500);
@@ -448,6 +454,7 @@ function WebPlayback(props: WebPlaybackProps) {
         const updatedState = await getPlaybackStateFromAPI();
         if (updatedState !== null && updatedState !== undefined) {
           console.log(`Updated playback state: is_playing=${updatedState.is_playing}`);
+          // Always update with the latest state
           setPlaybackState(updatedState);
         }
       }, 200); // Small delay to ensure the player has processed the request
@@ -458,13 +465,28 @@ function WebPlayback(props: WebPlaybackProps) {
     }
   }
 
+  // Note: We're using direct player state updates now for better synchronization
+
   // Seek to position using the Web SDK player
   async function seekToPosition(position: number) {
     if (!playerRef.current) return;
 
     try {
+      // Immediately update the local state to reflect the new position
+      if (playbackState) {
+        setPlaybackState(prevState => {
+          if (prevState === null) return null;
+          return {
+            ...prevState,
+            progress_ms: position,
+          };
+        });
+      }
+
       // Use the Web SDK player's seek method instead of the API
       await playerRef.current.seek(position);
+
+      // The player_state_changed event will automatically update the UI when ready
     } catch (error) {
       console.error('Error seeking to position:', error);
     }
@@ -536,7 +558,14 @@ function WebPlayback(props: WebPlaybackProps) {
   // Effect to update the ref whenever playbackState changes
   useEffect(
     function syncPlaybackState() {
-      currentPlaybackStateRef.current = playbackState;
+      // Track previous track and playlist IDs for change detection
+      if (playbackState?.item?.id) {
+        previousTrackRef.current = playbackState.item.id;
+      }
+
+      if (playbackState?.context?.uri?.startsWith('spotify:playlist:')) {
+        previousPlaylistRef.current = playbackState.context.uri.split(':')[2];
+      }
 
       // Sync local pause state with playback state when it updates from API
       if (playbackState !== null && playbackState !== undefined) {
@@ -552,11 +581,11 @@ function WebPlayback(props: WebPlaybackProps) {
 
         // Only fetch queue when track changes or other relevant operations
         // Not when just toggling play/pause
-        const currentTrackId = currentPlaybackStateRef.current?.item?.id;
+        const currentTrackId = previousTrackRef.current;
         const newTrackId = playbackState.item?.id;
         const trackChanged = currentTrackId !== newTrackId;
 
-        if (trackChanged || !currentPlaybackStateRef.current) {
+        if (trackChanged || !previousTrackRef.current) {
           fetchQueue();
         }
       }
@@ -643,26 +672,36 @@ function WebPlayback(props: WebPlaybackProps) {
         player.addListener('not_ready', handlePlayerNotReady);
 
         // Player state changed handler function
-        async function handlePlayerStateChanged() {
-          // Get the track ID from the API (in the context of the playlist)
-          const newPlaybackStateFromAPI = await getPlaybackStateFromAPI();
-          if (newPlaybackStateFromAPI === null || newPlaybackStateFromAPI === undefined) return;
+        async function handlePlayerStateChanged(state: Spotify.PlaybackState) {
+          // Store the SDK state directly - this becomes our primary source of truth
+          currentPlayerStateRef.current = state;
 
-          // Get the current track ID
-          const newTrackId = newPlaybackStateFromAPI.item?.id;
-          const currentTrackId = currentPlaybackStateRef.current?.item?.id;
+          // Get the essential playback info directly from the SDK state
+          const sdkTrack = state.track_window.current_track;
 
-          // Get playlist IDs
-          const newPlaylistId = newPlaybackStateFromAPI.context?.uri?.startsWith(
-            'spotify:playlist:'
-          )
-            ? newPlaybackStateFromAPI.context.uri.split(':')[2]
+          // Update our React state with minimal needed information
+          // This significantly reduces unnecessary conversions
+          setPlaybackState(prevState => {
+            // Create a minimalist update that preserves other fields from API state
+            return {
+              ...prevState,
+              // Essential fields from SDK that UI needs immediately
+              progress_ms: state.position,
+              is_playing: !state.paused,
+              item: sdkTrack as unknown as SpotifyApi.TrackObjectFull,
+              context: state.context as unknown as SpotifyApi.ContextObject,
+            } as SpotifyApi.CurrentPlaybackResponse;
+          });
+
+          // Get the current track ID directly from SDK state
+          const newTrackId = sdkTrack?.id;
+          const currentTrackId = previousTrackRef.current;
+
+          // Get playlist IDs directly from SDK state
+          const newPlaylistId = state.context?.uri?.startsWith('spotify:playlist:')
+            ? state.context.uri.split(':')[2]
             : null;
-          const currentPlaylistId = currentPlaybackStateRef.current?.context?.uri?.startsWith(
-            'spotify:playlist:'
-          )
-            ? currentPlaybackStateRef.current.context.uri.split(':')[2]
-            : null;
+          const currentPlaylistId = previousPlaylistRef.current;
 
           // Check if playlist has changed
           const playlistChanged = newPlaylistId !== currentPlaylistId;
@@ -701,8 +740,16 @@ function WebPlayback(props: WebPlaybackProps) {
             }
           }
 
-          // Update playback state
-          setPlaybackState(newPlaybackStateFromAPI);
+          // We've already updated the playback state above with setPlaybackState
+
+          // Update our track and playlist references
+          if (sdkTrack?.id) {
+            previousTrackRef.current = sdkTrack.id;
+          }
+
+          if (state.context?.uri?.startsWith('spotify:playlist:')) {
+            previousPlaylistRef.current = state.context.uri.split(':')[2];
+          }
 
           // Update queue when track or playlist changes
           // Note: Unfortunately, the queue cannot be derived from the playback state

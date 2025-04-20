@@ -46,17 +46,11 @@ function TrackProgress({ position, duration, isPaused, onSeek }: TrackProgressPr
   const lastUpdateTimeRef = useRef<number>(Date.now());
   // Ref to store the animation frame ID
   const animationFrameRef = useRef<number | null>(null);
+  // Ref to track if we just performed a seek operation
+  const justSeekedRef = useRef<boolean>(false);
 
   // Calculate progress percentage for the progress bar width
   const progressPercentage = duration > 0 ? (displayPosition / duration) * 100 : 0;
-
-  // Update display position when the actual position changes (if not dragging)
-  useEffect(() => {
-    if (!isDragging) {
-      setDisplayPosition(position);
-      lastUpdateTimeRef.current = Date.now();
-    }
-  }, [position, isDragging]);
 
   // Handle animation frame updates for smooth progress bar movement
   const updateProgressBar = useCallback(() => {
@@ -77,29 +71,58 @@ function TrackProgress({ position, duration, isPaused, onSeek }: TrackProgressPr
     animationFrameRef.current = requestAnimationFrame(updateProgressBar);
   }, [isPaused, isDragging, duration]);
 
+  // Update display position when the actual position changes (if not dragging)
+  useEffect(() => {
+    if (!isDragging) {
+      // Reset the animation and update display position
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+
+      // Update the display position to match the actual position
+      setDisplayPosition(position);
+      lastUpdateTimeRef.current = Date.now();
+      justSeekedRef.current = true;
+
+      // Start a new animation if not paused
+      if (!isPaused) {
+        animationFrameRef.current = requestAnimationFrame(updateProgressBar);
+      }
+    }
+  }, [position, isPaused, isDragging, updateProgressBar]);
+
   // Set up and clean up the animation frame
   useEffect(() => {
     // If paused or dragging, don't start the animation
     if (isPaused || isDragging) {
-      if (animationFrameRef.current !== null && animationFrameRef.current !== undefined) {
+      if (animationFrameRef.current !== null) {
         cancelAnimationFrame(animationFrameRef.current);
         animationFrameRef.current = null;
       }
       return;
     }
 
+    // If we just performed a seek, don't start a new animation (handled by position effect)
+    if (justSeekedRef.current) {
+      justSeekedRef.current = false;
+      return;
+    }
+
     // Start the animation
     lastUpdateTimeRef.current = Date.now();
-    animationFrameRef.current = requestAnimationFrame(updateProgressBar);
+    if (animationFrameRef.current === null) {
+      animationFrameRef.current = requestAnimationFrame(updateProgressBar);
+    }
 
     // Clean up on unmount or when dependencies change
     return () => {
-      if (animationFrameRef.current !== null && animationFrameRef.current !== undefined) {
+      if (animationFrameRef.current !== null) {
         cancelAnimationFrame(animationFrameRef.current);
         animationFrameRef.current = null;
       }
     };
-  }, [isPaused, isDragging, duration, updateProgressBar]);
+  }, [isPaused, isDragging, updateProgressBar]);
 
   // Handle click on progress bar
   function handleProgressBarClick(e: React.MouseEvent<HTMLDivElement>) {
@@ -108,6 +131,7 @@ function TrackProgress({ position, duration, isPaused, onSeek }: TrackProgressPr
     const newPosition = calculatePositionFromMouse(e, progressBarRef.current, duration);
     setDisplayPosition(newPosition);
     onSeek(newPosition);
+    justSeekedRef.current = true;
   }
 
   // Handle drag start
@@ -115,7 +139,7 @@ function TrackProgress({ position, duration, isPaused, onSeek }: TrackProgressPr
     setIsDragging(true);
 
     // Cancel any ongoing animation
-    if (animationFrameRef.current !== null && animationFrameRef.current !== undefined) {
+    if (animationFrameRef.current !== null) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
@@ -126,6 +150,7 @@ function TrackProgress({ position, duration, isPaused, onSeek }: TrackProgressPr
     if (isDragging) {
       onSeek(displayPosition);
       setIsDragging(false);
+      justSeekedRef.current = true;
 
       // Restart animation if not paused
       if (!isPaused) {
@@ -156,6 +181,7 @@ function TrackProgress({ position, duration, isPaused, onSeek }: TrackProgressPr
     function handleMouseUp() {
       onSeek(displayPosition);
       setIsDragging(false);
+      justSeekedRef.current = true;
 
       // Restart animation if not paused
       if (!isPaused) {
@@ -176,7 +202,7 @@ function TrackProgress({ position, duration, isPaused, onSeek }: TrackProgressPr
   // Clean up animation frame on unmount
   useEffect(() => {
     return () => {
-      if (animationFrameRef.current !== null && animationFrameRef.current !== undefined) {
+      if (animationFrameRef.current !== null) {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
