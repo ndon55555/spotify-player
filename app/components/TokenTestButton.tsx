@@ -14,7 +14,7 @@ interface TestResult {
   timestamp?: number;
 }
 
-const TokenTestButton: React.FC<TokenTestButtonProps> = ({ refreshToken }) => {
+const TokenTestButton: React.FC<TokenTestButtonProps> = () => {
   const [testResult, setTestResult] = useState<TestResult>({});
   const [loading, setLoading] = useState(false);
   const resultRef = useRef<HTMLDivElement>(null);

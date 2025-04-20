@@ -33,7 +33,7 @@ export function useSpotifyAuth(): UseSpotifyAuthResult {
       setError(undefined);
       setToken(data.access_token);
       return data.access_token;
-    } catch (err) {
+    } catch {
       setError('Network error when fetching token');
       setToken(undefined);
       return undefined;
@@ -58,7 +58,7 @@ export function useSpotifyAuth(): UseSpotifyAuthResult {
       setError(undefined);
       setToken(data.access_token);
       return data.access_token;
-    } catch (err) {
+    } catch {
       setError('Network error when refreshing token');
       setToken(undefined);
       return undefined;

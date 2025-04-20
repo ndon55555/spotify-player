@@ -4,6 +4,34 @@ import { eq, and } from 'drizzle-orm';
 
 const { playlistPositions } = schema;
 
+// Helper function to get the authenticated user ID from the access token
+async function getAuthenticatedUserId(request: NextRequest): Promise<string | null> {
+  const access_token = request.cookies.get('access_token')?.value;
+
+  if (!access_token) {
+    return null;
+  }
+
+  try {
+    // Call Spotify API to get the current user's profile
+    const response = await fetch('https://api.spotify.com/v1/me', {
+      headers: {
+        Authorization: `Bearer ${access_token}`,
+      },
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const userData = await response.json();
+    return userData.id;
+  } catch (error) {
+    console.error('Error getting authenticated user ID:', error);
+    return null;
+  }
+}
+
 // GET /api/playlist-positions?userId=xxx&playlistId=yyy
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -12,6 +40,17 @@ export async function GET(request: NextRequest) {
 
   if (!userId || !playlistId) {
     return NextResponse.json({ error: 'Missing userId or playlistId' }, { status: 400 });
+  }
+
+  // Verify that the authenticated user matches the requested userId
+  const authenticatedUserId = await getAuthenticatedUserId(request);
+
+  if (!authenticatedUserId) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  }
+
+  if (userId !== authenticatedUserId) {
+    return NextResponse.json({ error: "Unauthorized to access this user's data" }, { status: 403 });
   }
 
   try {
@@ -42,6 +81,20 @@ export async function POST(request: NextRequest) {
 
     if (!userId || !playlistId || !trackId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    // Verify that the authenticated user matches the requested userId
+    const authenticatedUserId = await getAuthenticatedUserId(request);
+
+    if (!authenticatedUserId) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
+
+    if (userId !== authenticatedUserId) {
+      return NextResponse.json(
+        { error: "Unauthorized to update another user's playlist position" },
+        { status: 403 }
+      );
     }
 
     // Check if a record already exists
@@ -93,6 +146,20 @@ export async function DELETE(request: NextRequest) {
 
   if (!userId || !playlistId) {
     return NextResponse.json({ error: 'Missing userId or playlistId' }, { status: 400 });
+  }
+
+  // Verify that the authenticated user matches the requested userId
+  const authenticatedUserId = await getAuthenticatedUserId(request);
+
+  if (!authenticatedUserId) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  }
+
+  if (userId !== authenticatedUserId) {
+    return NextResponse.json(
+      { error: "Unauthorized to delete another user's playlist position" },
+      { status: 403 }
+    );
   }
 
   try {
