@@ -79,17 +79,11 @@ const createMockSdkState = (position = 30000) => ({
   shuffle: false,
 });
 
-// Declare types for the Spotify Player mock
-declare global {
-  interface Window {
-    Spotify: {
-      Player: typeof MockSpotifyPlayer;
-    };
-  }
-}
+// Instead of re-declaring the Window interface (which causes type conflicts),
+// we'll cast our mock directly
 
 // Mock the global window.Spotify object
-window.Spotify = {
+(window as any).Spotify = {
   Player: MockSpotifyPlayer,
 };
 
@@ -162,8 +156,13 @@ describe('TrackProgress Component - Regression Test for Position Synchronization
       toJSON: () => {},
     }));
 
-    // Trigger the click on the progress bar
-    fireEvent.click(progressBar, clickEvent);
+    // Ensure progressBar is not null before clicking
+    if (progressBar) {
+      // Trigger the click on the progress bar
+      fireEvent.click(progressBar, clickEvent);
+    } else {
+      throw new Error('Progress bar element not found');
+    }
 
     // Restore the original method
     Element.prototype.getBoundingClientRect = originalGetBoundingClientRect;
