@@ -1,4 +1,16 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Spotify Player
+
+[![CI Status](https://github.com/ndon55555/spotify-player/actions/workflows/ci.yml/badge.svg)](https://github.com/ndon55555/spotify-player/actions/workflows/ci.yml)
+
+A Next.js web application that enhances the Spotify experience with additional features.
+
+## Features Beyond Standard Spotify
+
+- **Playlist Position Memory**: Remembers where you left off in a playlist, allowing you to continue from the same track when you return
+
+## Future Enhancements (Wishlist)
+
+- Remove songs from Discover Weekly playlist (or generate song recommendations without Spotify's help)
 
 ## Getting Started
 
@@ -16,26 +28,53 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Technologies Used
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Next.js**: React framework for building the user interface
+- **Spotify Web Playback SDK**: For audio playback and control
+- **Spotify Web API**: For retrieving user data, playlists, and controlling playback
+- **Drizzle ORM**: For database operations to store user preferences and playlist positions
+- **TailwindCSS**: For styling
+- **TypeScript**: For type safety
+- **Docker**: For containerization and deployment
 
-## Learn More
+## Development
 
-To learn more about Next.js, take a look at the following resources:
+### Prerequisites
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Node.js 23.x
+- pnpm 10.7.0+
+- Spotify Developer Account
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Environment Setup
 
-## Deploy on Vercel
+Copy the `.env.sample` file to `.env` and fill in your Spotify API credentials.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Available Commands
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+# Development
+pnpm dev             # Start development server
+pnpm lint            # Run ESLint
+pnpm format          # Format code with Prettier
+pnpm type:check      # Run TypeScript type checking
 
-## Project Wishlist
+# Testing
+pnpm test            # Run tests
+pnpm test:watch      # Run tests in watch mode
+pnpm test:coverage   # Run tests with coverage report
 
-- Remove songs from Discover Weekly playlist
-- Remember where you last were in a playlist so you can continue from there if you want to check out another song
+# Database
+pnpm db:generate     # Generate database migrations
+pnpm db:migrate      # Run database migrations
+pnpm db:studio       # Open Drizzle Studio
+```
+
+## Deployment
+
+The application can be deployed using Docker. A Dockerfile is included in the repository.
+
+```bash
+docker build -t spotify-player .
+docker run -p 3000:3000 spotify-player
+```
