@@ -32,7 +32,23 @@ export async function GET(req: NextRequest) {
 
     if (response.ok) {
       const response = NextResponse.redirect('http://localhost:3000');
-      response.cookies.set('access_token', data.access_token, { httpOnly: true });
+      // Store access token with expiration
+      const expiresInSeconds = data.expires_in || 3600;
+      response.cookies.set('access_token', data.access_token, {
+        httpOnly: true,
+        maxAge: expiresInSeconds,
+      });
+
+      // Store refresh token with longer expiration (30 days)
+      // Note: The 30-day expiration is just for the cookie storage mechanism, not the actual
+      // refresh token validity. Spotify refresh tokens can last much longer or be revoked by
+      // Spotify at any time. This is a reasonable cookie expiration time for security purposes.
+      if (data.refresh_token) {
+        response.cookies.set('refresh_token', data.refresh_token, {
+          httpOnly: true,
+          maxAge: 30 * 24 * 60 * 60, // 30 days
+        });
+      }
       return response;
     } else {
       return NextResponse.json(data, { status: response.status });

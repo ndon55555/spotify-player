@@ -1,23 +1,26 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Login from './components/login';
 import WebPlayback from './components/webPlayback';
+import { useSpotifyAuth } from './utils/spotifyAuth';
 
 const Home: React.FC = () => {
-  const [token, setToken] = useState<string | undefined>(undefined);
+  const { token, isLoading, error, refreshToken } = useSpotifyAuth();
 
-  useEffect(() => {
-    async function getToken() {
-      const response = await fetch('/api/auth/token');
-      const json = await response.json();
-      setToken(json.access_token);
-    }
+  if (isLoading) {
+    return <div className="flex h-screen items-center justify-center text-white">Loading...</div>;
+  }
 
-    getToken();
-  }, []);
+  if (error) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4 text-white">
+        <p>Authentication error: {error}</p>
+        <Login />
+      </div>
+    );
+  }
 
-  return <>{token === undefined ? <Login /> : <WebPlayback token={token} />}</>;
+  return <>{!token ? <Login /> : <WebPlayback token={token} refreshToken={refreshToken} />}</>;
 };
 
 export default Home;

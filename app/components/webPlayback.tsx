@@ -7,6 +7,7 @@ declare global {
 
 import React, { useEffect, useRef, useState } from 'react';
 import './MainWebPlayback.css';
+import { fetchWithSpotifyAuth } from '../utils/spotifyAuth';
 import { SpotifyTrack, SpotifyPlaylist } from './types';
 import PlaylistItem from './PlaylistItem';
 import TrackItem from './TrackItem';
@@ -30,6 +31,7 @@ interface PlaylistPosition {
 
 interface WebPlaybackProps {
   token: string;
+  refreshToken: () => Promise<string | undefined>;
 }
 
 // Script ID constant
@@ -72,11 +74,11 @@ function WebPlayback(props: WebPlaybackProps) {
   // Helper function to get the playback state from the API
   async function getPlaybackStateFromAPI(): Promise<SpotifyApi.CurrentPlaybackResponse | null> {
     try {
-      const response = await fetch(`${SPOTIFY_API}/me/player`, {
-        headers: {
-          Authorization: `Bearer ${props.token}`,
-        },
-      });
+      const response = await fetchWithSpotifyAuth(
+        `${SPOTIFY_API}/me/player`,
+        props.token,
+        props.refreshToken
+      );
 
       if (!response.ok) {
         throw new Error(`Error ${response.status}: ${response.statusText}`);
@@ -92,11 +94,11 @@ function WebPlayback(props: WebPlaybackProps) {
   // Helper function to get the queue from the API
   async function getQueueFromAPI(): Promise<SpotifyApi.UsersQueueResponse | null> {
     try {
-      const response = await fetch(`${SPOTIFY_API}/me/player/queue`, {
-        headers: {
-          Authorization: `Bearer ${props.token}`,
-        },
-      });
+      const response = await fetchWithSpotifyAuth(
+        `${SPOTIFY_API}/me/player/queue`,
+        props.token,
+        props.refreshToken
+      );
 
       if (!response.ok) {
         throw new Error(`Error ${response.status}: ${response.statusText}`);
@@ -112,11 +114,11 @@ function WebPlayback(props: WebPlaybackProps) {
   // Fetch the current user's profile to get the user ID
   async function fetchUserProfile() {
     try {
-      const response = await fetch(`${SPOTIFY_API}/me`, {
-        headers: {
-          Authorization: `Bearer ${props.token}`,
-        },
-      });
+      const response = await fetchWithSpotifyAuth(
+        `${SPOTIFY_API}/me`,
+        props.token,
+        props.refreshToken
+      );
 
       if (!response.ok) {
         throw new Error(`Error ${response.status}: ${response.statusText}`);
@@ -212,11 +214,11 @@ function WebPlayback(props: WebPlaybackProps) {
   // Fetch playlists data from Spotify API
   async function getPlaylistsData() {
     try {
-      const response = await fetch(`${SPOTIFY_API}/me/playlists`, {
-        headers: {
-          Authorization: `Bearer ${props.token}`,
-        },
-      });
+      const response = await fetchWithSpotifyAuth(
+        `${SPOTIFY_API}/me/playlists`,
+        props.token,
+        props.refreshToken
+      );
 
       if (!response.ok) {
         throw new Error(`Error ${response.status}: ${response.statusText}`);
@@ -309,11 +311,7 @@ function WebPlayback(props: WebPlaybackProps) {
     try {
       const fetchUrl = url || `${SPOTIFY_API}/playlists/${playlistId}/tracks?limit=50`;
 
-      const response = await fetch(fetchUrl, {
-        headers: {
-          Authorization: `Bearer ${props.token}`,
-        },
-      });
+      const response = await fetchWithSpotifyAuth(fetchUrl, props.token, props.refreshToken);
 
       if (!response.ok) {
         throw new Error(`Error ${response.status}: ${response.statusText}`);
