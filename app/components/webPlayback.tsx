@@ -691,8 +691,24 @@ function WebPlayback(props: WebPlaybackProps) {
             } as SpotifyApi.CurrentPlaybackResponse;
           });
 
-          // Get the current track ID directly from SDK state
-          const newTrackId = sdkTrack?.id;
+          // For playlist position saving, we need the API track ID
+          // We'll initialize it as null and only set it if we can get the proper ID
+          let apiTrackId = null;
+
+          // Get track ID from API when in playlist context
+          if (state.context?.uri?.startsWith('spotify:playlist:')) {
+            try {
+              const apiState = await getPlaybackStateFromAPI();
+              if (apiState?.item?.id) {
+                apiTrackId = apiState.item.id;
+              }
+            } catch (error) {
+              console.error('Error getting API track ID:', error);
+            }
+          }
+
+          // For UI updates we use SDK ID, but for playlist operations we need the API ID
+          const newTrackId = apiTrackId;
           const currentTrackId = previousTrackRef.current;
 
           // Get playlist IDs directly from SDK state
@@ -733,17 +749,20 @@ function WebPlayback(props: WebPlaybackProps) {
             if (trackChanged && currentPlaylistId && newPlaylistId && newTrackId) {
               console.log(`Track changed from ${currentTrackId || 'none'} to ${newTrackId}`);
 
-              // Save the new track ID for the current playlist
-              savePlaylistPosition(newPlaylistId, newTrackId);
+              // Save the new track ID for the current playlist (only if we have a valid API track ID)
+              if (newTrackId) {
+                savePlaylistPosition(newPlaylistId, newTrackId);
+              } else {
+                console.warn('Cannot save playlist position: No valid API track ID available');
+              }
             }
           }
 
           // We've already updated the playback state above with setPlaybackState
 
           // Update our track and playlist references
-          if (sdkTrack?.id) {
-            previousTrackRef.current = sdkTrack.id;
-          }
+          // For tracking previous track ID, we'll use the API track ID
+          previousTrackRef.current = newTrackId;
 
           if (state.context?.uri?.startsWith('spotify:playlist:')) {
             previousPlaylistRef.current = state.context.uri.split(':')[2];
