@@ -62,7 +62,7 @@ function WebPlayback(props: WebPlaybackProps) {
   const [queueTracks, setQueueTracks] = useState<
     Array<SpotifyApi.TrackObjectFull | SpotifyApi.EpisodeObjectFull>
   >([]);
-  const [isLoadingQueue, setIsLoadingQueue] = useState<boolean>(false);
+  // We never show queue loading state as requested
   const [volume, setVolume] = useState<number>(50);
   const volumeRef = useRef<number>(50); // Add ref to track volume without triggering effects
   const [isLoadingPlaylists, setIsLoadingPlaylists] = useState<boolean>(false);
@@ -369,7 +369,7 @@ function WebPlayback(props: WebPlaybackProps) {
 
   // Fetch the queue
   const fetchQueue = async () => {
-    setIsLoadingQueue(true);
+    // Never show loading message for queue updates
     try {
       const queueData = await getQueueFromAPI();
       if (queueData !== null && queueData !== undefined) {
@@ -377,8 +377,6 @@ function WebPlayback(props: WebPlaybackProps) {
       }
     } catch (error) {
       console.error('Error fetching queue:', error);
-    } finally {
-      setIsLoadingQueue(false);
     }
   };
 
@@ -930,7 +928,7 @@ function WebPlayback(props: WebPlaybackProps) {
           <VolumeControl volume={volume} onVolumeChange={handleVolumeChange} />
 
           {/* Queue Display */}
-          <QueueDisplay queueTracks={queueTracks} isLoading={isLoadingQueue} onPlay={playTrack} />
+          <QueueDisplay queueTracks={queueTracks} isLoading={false} onPlay={playTrack} />
 
           {/* Track List */}
           <div className="track-list-section">
