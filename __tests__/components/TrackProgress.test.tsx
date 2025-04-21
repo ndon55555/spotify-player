@@ -117,7 +117,7 @@ afterEach(() => {
   dateNowSpy.mockRestore();
 });
 
-describe('TrackProgress Component - Regression Test for Position Synchronization', () => {
+describe('TrackProgress Component - Position Synchronization', () => {
   test('Should update position correctly when seeking', async () => {
     // Create a mock seek function to test both API and SDK updates
     const mockSeek = jest.fn(async position => {
@@ -225,17 +225,8 @@ describe('TrackProgress Component - Regression Test for Position Synchronization
       expect(timeElement).toBeInTheDocument();
     });
 
-    // In our fixed implementation, when new props come in, we reset the animation
-    // and take the new position value, regardless of whether it's from API or SDK
-    // This means that with our current implementation, the position WILL update to the API value
-    // This is acceptable behavior as long as we're always providing the SDK value first in the actual component
     rerender(
-      <TrackProgress
-        position={apiPosition} // Now we're passing only the API position
-        duration={180000}
-        isPaused={false}
-        onSeek={mockSeek}
-      />
+      <TrackProgress position={apiPosition} duration={180000} isPaused={false} onSeek={mockSeek} />
     );
 
     // The TrackProgress accepts the newest position props it receives
@@ -276,8 +267,7 @@ describe('TrackProgress Component - Regression Test for Position Synchronization
     });
   });
 
-  // This test specifically verifies the fix for the regression
-  test('Regression fix: position should update immediately after seeking without waiting for SDK callback', async () => {
+  test('Position should update immediately after seeking without waiting for SDK callback', async () => {
     let sdkPosition = 30000;
     let apiPosition = 30000;
 

@@ -62,7 +62,6 @@ function WebPlayback(props: WebPlaybackProps) {
   const [queueTracks, setQueueTracks] = useState<
     Array<SpotifyApi.TrackObjectFull | SpotifyApi.EpisodeObjectFull>
   >([]);
-  // We never show queue loading state as requested
   const [volume, setVolume] = useState<number>(50);
   const volumeRef = useRef<number>(50); // Add ref to track volume without triggering effects
   const [isLoadingPlaylists, setIsLoadingPlaylists] = useState<boolean>(false);
@@ -469,8 +468,6 @@ function WebPlayback(props: WebPlaybackProps) {
       setIsLocalPaused(isLocalPaused);
     }
   }
-
-  // Note: We're using direct player state updates now for better synchronization
 
   // Seek to position using the Web SDK player
   async function seekToPosition(position: number) {

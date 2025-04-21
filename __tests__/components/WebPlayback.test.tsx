@@ -1,14 +1,5 @@
-/**
- * This test file verifies the fix for the track ID handling issue.
- * It directly tests the logic that distinguishes between SDK and API track IDs
- * when saving playlist positions.
- */
-
 // @ts-nocheck
 import { describe, it, expect } from '@jest/globals';
-
-// The issue fixed: SDK track IDs and API track IDs can be different
-// This test file verifies we're using the correct IDs for saving playlist positions
 
 const SDK_TRACK_ID = 'sdk-track-id';
 const API_TRACK_ID = 'api-track-id';

@@ -3,8 +3,6 @@ import { render, fireEvent, act, screen, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom';
 import TrackProgress from '../../app/components/TrackProgress';
 
-// Simplified test that focuses on the core regression issue without complex mocking
-
 // Mock the requestAnimationFrame and cancelAnimationFrame for predictable timing
 jest.spyOn(window, 'requestAnimationFrame').mockImplementation(cb => {
   return setTimeout(() => cb(Date.now()), 0) as unknown as number;
@@ -27,15 +25,7 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-/**
- * This is a regression test specifically designed to catch the issue where
- * seeking in a track doesn't properly update the visual position indicators.
- *
- * The regression occurs when the TrackProgress component doesn't get the most recent
- * position data after a seek operation, causing the visual indicator to be out of sync
- * with the actual audio playback position.
- */
-describe('TrackProgress Position Synchronization - Regression Test', () => {
+describe('TrackProgress Position Synchronization', () => {
   test('Should update visual position immediately after seeking', async () => {
     // Mock the seek function - in the real app, this updates both SDK and API states
     const mockSeek = jest.fn();
@@ -179,7 +169,7 @@ describe('TrackProgress Position Synchronization - Regression Test', () => {
     });
   });
 
-  test('Regression fix: seeking should work correctly when paused', async () => {
+  test('Seeking should work correctly when paused', async () => {
     const mockSeek = jest.fn();
 
     const { rerender } = render(
