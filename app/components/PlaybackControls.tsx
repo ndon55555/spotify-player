@@ -2,25 +2,113 @@ import React from 'react';
 import './PlaybackControls.css';
 
 interface PlaybackControlsProps {
+  playerRef?: React.RefObject<Spotify.Player | null>;
   isPaused: boolean;
-  onTogglePlay: () => void;
-  onPreviousTrack: () => void;
-  onNextTrack: () => void;
+  setIsLocalPaused?: (isPaused: boolean) => void;
+  onStateChange?: () => void;
+  onTogglePlay?: () => void;
+  onPreviousTrack?: () => void;
+  onNextTrack?: () => void;
 }
 
 /**
  * PlaybackControls component displays playback control buttons
  * Including previous track, play/pause, and next track
+ * Contains both UI rendering and playback control logic
  */
 const PlaybackControls: React.FC<PlaybackControlsProps> = ({
+  playerRef,
   isPaused,
+  setIsLocalPaused,
+  onStateChange,
   onTogglePlay,
   onPreviousTrack,
   onNextTrack,
 }) => {
+  // Toggle play/pause
+  async function togglePlay() {
+    // Use callback if provided, otherwise use player API
+    if (onTogglePlay) {
+      onTogglePlay();
+      return;
+    }
+    if (!playerRef?.current || !setIsLocalPaused) return;
+
+    try {
+      // Immediately update local pause state
+      const newPausedState = !isPaused;
+      setIsLocalPaused(newPausedState);
+
+      // Set a flag to indicate we're manually toggling
+      // This will prevent the useEffect from overriding our state
+      const manualToggleTime = Date.now();
+      window.lastManualToggleTime = manualToggleTime;
+
+      console.log(`Toggling playback to ${newPausedState ? 'paused' : 'playing'}`);
+
+      // Use the Web SDK player's togglePlay method
+      await playerRef.current.togglePlay();
+
+      // Fetch updated playback state after API call
+      setTimeout(async () => {
+        if (onStateChange) {
+          onStateChange();
+        }
+      }, 200); // Small delay to ensure the player has processed the request
+    } catch (error) {
+      console.error('Error toggling playback:', error);
+      // Revert local state if API call fails
+      setIsLocalPaused(isPaused);
+    }
+  }
+
+  // Skip to previous track
+  async function skipToPrevious() {
+    // Use callback if provided, otherwise use player API
+    if (onPreviousTrack) {
+      onPreviousTrack();
+      return;
+    }
+    if (!playerRef?.current) return;
+
+    try {
+      // Use the Web SDK player's previousTrack method
+      await playerRef.current.previousTrack();
+
+      // Call state change handler if provided
+      if (onStateChange) {
+        onStateChange();
+      }
+    } catch (error) {
+      console.error('Error skipping to previous track:', error);
+    }
+  }
+
+  // Skip to next track
+  async function skipToNext() {
+    // Use callback if provided, otherwise use player API
+    if (onNextTrack) {
+      onNextTrack();
+      return;
+    }
+    if (!playerRef?.current) return;
+
+    try {
+      // Use the Web SDK player's nextTrack method
+      await playerRef.current.nextTrack();
+
+      // Call state change handler if provided
+      if (onStateChange) {
+        onStateChange();
+      }
+    } catch (error) {
+      console.error('Error skipping to next track:', error);
+    }
+  }
+
   return (
     <div className="playback-controls">
-      <button onClick={onPreviousTrack} className="navigation-button prev-button">
+      <button onClick={skipToPrevious} className="navigation-button prev-button">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           className="navigation-icon"
@@ -32,7 +120,7 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
         </svg>
       </button>
 
-      <button onClick={onTogglePlay} className="play-pause-button">
+      <button onClick={togglePlay} className="play-pause-button">
         {isPaused ? (
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -66,7 +154,7 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
         )}
       </button>
 
-      <button onClick={onNextTrack} className="navigation-button next-button">
+      <button onClick={skipToNext} className="navigation-button next-button">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           className="navigation-icon"

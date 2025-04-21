@@ -5,7 +5,7 @@ declare global {
   }
 }
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import './MainWebPlayback.css';
 import { fetchWithSpotifyAuth } from '../utils/spotifyAuth';
 import { SpotifyTrack, SpotifyPlaylist } from './types';
@@ -59,9 +59,6 @@ function WebPlayback(props: WebPlaybackProps) {
   const previousPlaylistRef = useRef<string | null>(null);
   const [playlists, setPlaylists] = useState<SpotifyPlaylist[]>([]);
   const [playlistTracks, setPlaylistTracks] = useState<SpotifyTrack[]>([]);
-  const [queueTracks, setQueueTracks] = useState<
-    Array<SpotifyApi.TrackObjectFull | SpotifyApi.EpisodeObjectFull>
-  >([]);
   const [volume, setVolume] = useState<number>(50);
   const volumeRef = useRef<number>(50); // Add ref to track volume without triggering effects
   const [isLoadingPlaylists, setIsLoadingPlaylists] = useState<boolean>(false);
@@ -74,6 +71,12 @@ function WebPlayback(props: WebPlaybackProps) {
   const activePlaylist = apiState?.context?.uri?.startsWith('spotify:playlist:')
     ? playlists.find(p => p.id === apiState.context?.uri.split(':')[2]) || null
     : null;
+
+  // Helper function for components to refresh state after player changes
+  const handleStateChange = () => {
+    getPlaybackStateFromAPI();
+    getQueueFromAPI();
+  };
 
   // Helper function to get the playback state from the API
   async function getPlaybackStateFromAPI(): Promise<SpotifyApi.CurrentPlaybackResponse | null> {
@@ -103,7 +106,7 @@ function WebPlayback(props: WebPlaybackProps) {
   }
 
   // Helper function to get the queue from the API
-  async function getQueueFromAPI(): Promise<SpotifyApi.UsersQueueResponse | null> {
+  const getQueueFromAPI = useCallback(async (): Promise<SpotifyApi.UsersQueueResponse | null> => {
     try {
       const response = await fetchWithSpotifyAuth(
         `${SPOTIFY_API}/me/player/queue`,
@@ -120,10 +123,10 @@ function WebPlayback(props: WebPlaybackProps) {
       console.error('Error fetching queue from API:', error);
       return null;
     }
-  }
+  }, [props.token, props.refreshToken]);
 
   // Fetch the current user's profile to get the user ID
-  async function fetchUserProfile() {
+  const fetchUserProfile = useCallback(async () => {
     try {
       const response = await fetchWithSpotifyAuth(
         `${SPOTIFY_API}/me`,
@@ -144,7 +147,7 @@ function WebPlayback(props: WebPlaybackProps) {
       setError('Failed to load user profile. Please try again.');
       return null;
     }
-  }
+  }, [props.token, props.refreshToken]);
 
   // Save the current track in a playlist
   async function savePlaylistPosition(
@@ -243,44 +246,7 @@ function WebPlayback(props: WebPlaybackProps) {
     }
   }
 
-  // Helper function to start playlist from the beginning
-  async function startPlaylistFromBeginning(playlist: SpotifyPlaylist) {
-    await playPlaylist(playlist.uri);
-
-    // Set isLocalPaused to false since we're starting playback
-    setIsLocalPaused(false);
-
-    // Fetch the playback state to ensure UI is in sync
-    setTimeout(async function updateInitialPlaybackState() {
-      // getPlaybackStateFromAPI now updates apiState directly
-      const state = await getPlaybackStateFromAPI();
-      if (state !== null && state !== undefined) {
-        console.log(`Initial playback state: is_playing=${state.is_playing}`);
-      }
-    }, 500);
-  }
-
-  // Helper function to handle playlist position
-  async function handlePlaylistPosition(playlist: SpotifyPlaylist) {
-    const savedPosition = await loadPlaylistPosition(playlist.id);
-
-    if (savedPosition === null || savedPosition === undefined) {
-      // If no saved position, just play from the beginning
-      await playPlaylist(playlist.uri);
-    }
-
-    // Set isLocalPaused to false since we're starting playback
-    setIsLocalPaused(false);
-
-    // Fetch the playback state to ensure UI is in sync
-    setTimeout(async function updatePlaybackState() {
-      // getPlaybackStateFromAPI now updates apiState directly
-      const state = await getPlaybackStateFromAPI();
-      if (state !== null && state !== undefined) {
-        console.log(`Initial playback state: is_playing=${state.is_playing}`);
-      }
-    }, 500);
-  }
+  // Functions moved above
 
   // Initialize playlists and related state
   async function initializePlaylistsAndState() {
@@ -296,13 +262,8 @@ function WebPlayback(props: WebPlaybackProps) {
         const firstPlaylist = playlistItems[0];
         fetchPlaylistTracks(firstPlaylist.id);
 
-        // Try to load saved position for the first playlist
-        if (userIdRef.current !== null && userIdRef.current !== undefined) {
-          await handlePlaylistPosition(firstPlaylist);
-        } else {
-          // If no user ID yet, just play from the beginning
-          await startPlaylistFromBeginning(firstPlaylist);
-        }
+        // Playlist playing is now handled by the PlaylistItem component
+        // The user can now click on a playlist to start playing it
       }
     } catch (error) {
       console.error('Error fetching playlists:', error);
@@ -366,196 +327,56 @@ function WebPlayback(props: WebPlaybackProps) {
     }
   };
 
-  // Fetch the queue
-  const fetchQueue = async () => {
-    // Never show loading message for queue updates
+  // Fetch the queue - now handled by QueueDisplay component
+  const fetchQueue = useCallback(async () => {
     try {
-      const queueData = await getQueueFromAPI();
-      if (queueData !== null && queueData !== undefined) {
-        setQueueTracks(queueData.queue);
-      }
+      await getQueueFromAPI();
     } catch (error) {
       console.error('Error fetching queue:', error);
     }
-  };
+  }, [getQueueFromAPI]);
 
-  // Play a specific track
-  const playTrack = async (trackUri: string, playlistUri?: string) => {
-    if (!deviceIdRef.current) return;
+  // playTrack function moved to TrackItem component
 
-    try {
-      // If playlistUri is provided, play the track in the context of that playlist
-      // Prepare the common fetch options
-      const body = playlistUri
-        ? {
-            context_uri: playlistUri,
-            offset: {
-              uri: trackUri,
-            },
-          }
-        : {
-            uris: [trackUri],
-          };
-      const fetchOptions = {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${props.token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      };
+  // playPlaylist function moved to PlaylistItem component
 
-      // Make a single fetch call with the appropriate body
-      await fetch(`${SPOTIFY_API}/me/player/play?device_id=${deviceIdRef.current}`, fetchOptions);
+  // togglePlay function moved to PlaybackControls component
 
-      // Fetch the updated queue after playing a track
-      fetchQueue();
-    } catch (error) {
-      console.error('Error playing track:', error);
-    }
-  };
+  // seekToPosition function moved to TrackProgress component
 
-  // Play a specific playlist
-  const playPlaylist = async (playlistUri: string) => {
-    if (!deviceIdRef.current) return;
+  // handleVolumeChange function moved to VolumeControl component
 
-    try {
-      await fetch(`${SPOTIFY_API}/me/player/play?device_id=${deviceIdRef.current}`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${props.token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          context_uri: playlistUri,
-        }),
-      });
-    } catch (error) {
-      console.error('Error playing playlist:', error);
-    }
-  };
+  // skipToPrevious function moved to PlaybackControls component
 
-  // Toggle play/pause
-  async function togglePlay() {
-    if (!playerRef.current) return;
-
-    try {
-      // Immediately update local pause state
-      const newPausedState = !isLocalPaused;
-      setIsLocalPaused(newPausedState);
-
-      // Set a flag to indicate we're manually toggling
-      // This will prevent the useEffect from overriding our state
-      const manualToggleTime = Date.now();
-      window.lastManualToggleTime = manualToggleTime;
-
-      console.log(`Toggling playback to ${newPausedState ? 'paused' : 'playing'}`);
-
-      // Use the Web SDK player's togglePlay method
-      await playerRef.current.togglePlay();
-
-      // Fetch updated playback state after API call
-      setTimeout(async () => {
-        // getPlaybackStateFromAPI now updates apiState directly
-        const updatedState = await getPlaybackStateFromAPI();
-        if (updatedState !== null && updatedState !== undefined) {
-          console.log(`Updated playback state: is_playing=${updatedState.is_playing}`);
-        }
-      }, 200); // Small delay to ensure the player has processed the request
-    } catch (error) {
-      console.error('Error toggling playback:', error);
-      // Revert local state if API call fails
-      setIsLocalPaused(isLocalPaused);
-    }
-  }
-
-  // Seek to position using the Web SDK player
-  async function seekToPosition(position: number) {
-    if (!playerRef.current) return;
-
-    try {
-      // Immediately update both API and SDK states to reflect the new position
-      // This ensures the UI updates immediately without waiting for callbacks
-      if (apiState) {
-        setApiState(prevState => {
-          if (prevState === null) return null;
-          return {
-            ...prevState,
-            progress_ms: position,
-          };
-        });
-      }
-
-      // Also update the SDK state if available to ensure perfect synchronization
-      if (sdkState) {
-        setSdkState(prevState => {
-          if (prevState === null) return null;
-          return {
-            ...prevState,
-            position: position,
-          };
-        });
-      }
-
-      // Use the Web SDK player's seek method instead of the API
-      await playerRef.current.seek(position);
-
-      // The player_state_changed event will automatically update the UI when ready
-    } catch (error) {
-      console.error('Error seeking to position:', error);
-    }
-  }
-
-  // Set volume
-  async function handleVolumeChange(newVolume: number) {
-    if (!playerRef.current) return;
-
-    // Update both state and ref
-    setVolume(newVolume);
-    volumeRef.current = newVolume;
-
-    // Set volume on the player
-    await playerRef.current.setVolume(newVolume / 100);
-  }
-
-  // Skip to previous track
-  async function skipToPrevious() {
-    if (!playerRef.current) return;
-
-    try {
-      // Use the Web SDK player's previousTrack method
-      await playerRef.current.previousTrack();
-
-      // The player_state_changed event will automatically update the UI
-      // No need to manually fetch state or queue as they'll be handled by the event listener
-    } catch (error) {
-      console.error('Error skipping to previous track:', error);
-    }
-  }
-
-  // Skip to next track
-  async function skipToNext() {
-    if (!playerRef.current) return;
-
-    try {
-      // Use the Web SDK player's nextTrack method
-      await playerRef.current.nextTrack();
-
-      // The player_state_changed event will automatically update the UI
-      // No need to manually fetch state or queue as they'll be handled by the event listener
-    } catch (error) {
-      console.error('Error skipping to next track:', error);
-    }
-  }
+  // skipToNext function moved to PlaybackControls component
 
   // Handle playlist selection
   async function handlePlaylistSelect(playlist: SpotifyPlaylist) {
+    // Set the selected playlist tracks
+    fetchPlaylistTracks(playlist.id);
+
     // Try to load saved position for the selected playlist
     const savedPosition = await loadPlaylistPosition(playlist.id);
 
-    // If no saved position, just play the playlist from the beginning
-    if (savedPosition === null || savedPosition === undefined) {
-      playPlaylist(playlist.uri);
+    // If no saved position, create a default playback request for the beginning
+    if (!savedPosition && deviceIdRef.current) {
+      try {
+        await fetch(`${SPOTIFY_API}/me/player/play?device_id=${deviceIdRef.current}`, {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${props.token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            context_uri: playlist.uri,
+          }),
+        });
+
+        // Set isLocalPaused to false since we're starting playback
+        setIsLocalPaused(false);
+      } catch (error) {
+        console.error('Error playing playlist:', error);
+      }
     }
   }
 
@@ -566,7 +387,7 @@ function WebPlayback(props: WebPlaybackProps) {
         fetchUserProfile();
       }
     },
-    [props.token]
+    [props.token, fetchUserProfile]
   );
 
   // Effect to update the ref whenever API state changes
@@ -604,7 +425,7 @@ function WebPlayback(props: WebPlaybackProps) {
         }
       }
     },
-    [apiState]
+    [apiState, fetchQueue]
   );
 
   // Effect to scroll to the active track when playlist changes or tracks are loaded
@@ -825,6 +646,8 @@ function WebPlayback(props: WebPlaybackProps) {
         }
       };
     },
+    // Only include props.token to avoid re-initialization on every state change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [props.token]
   );
 
@@ -906,7 +729,11 @@ function WebPlayback(props: WebPlaybackProps) {
               position={sdkState?.position || apiState.progress_ms || 0}
               duration={apiState.item.duration_ms}
               isPaused={isLocalPaused}
-              onSeek={seekToPosition}
+              playerRef={playerRef}
+              apiState={apiState}
+              setApiState={setApiState}
+              sdkState={sdkState}
+              setSdkState={setSdkState}
             />
           )}
 
@@ -914,18 +741,27 @@ function WebPlayback(props: WebPlaybackProps) {
           {/* We always show playback controls if the player is initialized */}
           {playerRef.current && (
             <PlaybackControls
+              playerRef={playerRef}
               isPaused={isLocalPaused}
-              onTogglePlay={togglePlay}
-              onPreviousTrack={skipToPrevious}
-              onNextTrack={skipToNext}
+              setIsLocalPaused={setIsLocalPaused}
+              onStateChange={handleStateChange}
             />
           )}
 
           {/* Volume Control */}
-          <VolumeControl volume={volume} onVolumeChange={handleVolumeChange} />
+          <VolumeControl
+            volume={volume}
+            setVolume={setVolume}
+            playerRef={playerRef}
+            volumeRef={volumeRef}
+          />
 
           {/* Queue Display */}
-          <QueueDisplay queueTracks={queueTracks} isLoading={false} onPlay={playTrack} />
+          <QueueDisplay
+            token={props.token}
+            deviceIdRef={deviceIdRef}
+            playlistUri={activePlaylist?.uri}
+          />
 
           {/* Track List */}
           <div className="track-list-section">
@@ -943,9 +779,10 @@ function WebPlayback(props: WebPlaybackProps) {
                       key={track.id}
                       track={track}
                       isActive={apiState?.item?.id === track.id}
-                      onPlay={playTrack}
                       index={index + 1}
                       playlistUri={activePlaylist?.uri}
+                      token={props.token}
+                      deviceIdRef={deviceIdRef}
                     />
                   ))}
                 </div>

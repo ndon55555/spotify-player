@@ -5,7 +5,7 @@ import { SpotifyPlaylist } from './types';
 interface PlaylistItemProps {
   playlist: SpotifyPlaylist;
   isActive: boolean;
-  onSelect: (playlist: SpotifyPlaylist) => void;
+  onSelect?: (playlist: SpotifyPlaylist) => void;
 }
 
 /**
@@ -16,8 +16,15 @@ const PlaylistItem: React.FC<PlaylistItemProps> = ({ playlist, isActive, onSelec
   // Ensure images array exists and has items before accessing
   const hasImages = playlist.images && playlist.images.length > 0;
 
+  // Handle playlist selection
+  const handlePlaylistSelect = () => {
+    if (onSelect) {
+      onSelect(playlist);
+    }
+  };
+
   return (
-    <div className={`playlist-item ${isActive ? 'active' : ''}`} onClick={() => onSelect(playlist)}>
+    <div className={`playlist-item ${isActive ? 'active' : ''}`} onClick={handlePlaylistSelect}>
       {hasImages && (
         <img src={playlist.images[0].url} alt={playlist.name} className="playlist-image" />
       )}

@@ -28,14 +28,30 @@ interface TrackProgressProps {
   position: number; // Current position in milliseconds
   duration: number; // Total duration in milliseconds
   isPaused: boolean;
-  onSeek: (position: number) => void; // Callback for when user seeks to a new position
+  playerRef?: React.RefObject<Spotify.Player | null>;
+  apiState?: SpotifyApi.CurrentPlaybackResponse | null;
+  setApiState?: React.Dispatch<React.SetStateAction<SpotifyApi.CurrentPlaybackResponse | null>>;
+  sdkState?: Spotify.PlaybackState | null;
+  setSdkState?: React.Dispatch<React.SetStateAction<Spotify.PlaybackState | null>>;
+  onSeek?: (position: number) => void;
 }
 
 /**
  * TrackProgress component displays a progress bar for the current track
  * Shows current position, total duration, and allows seeking
+ * Contains both UI rendering and seeking logic
  */
-function TrackProgress({ position, duration, isPaused, onSeek }: TrackProgressProps) {
+function TrackProgress({
+  position,
+  duration,
+  isPaused,
+  playerRef,
+  apiState,
+  setApiState,
+  sdkState,
+  setSdkState,
+  onSeek,
+}: TrackProgressProps) {
   // State to track the displayed position (which may differ from actual position during dragging)
   const [displayPosition, setDisplayPosition] = useState(position);
   // State to track if user is dragging the progress handle
@@ -51,6 +67,53 @@ function TrackProgress({ position, duration, isPaused, onSeek }: TrackProgressPr
 
   // Calculate progress percentage for the progress bar width
   const progressPercentage = duration > 0 ? (displayPosition / duration) * 100 : 0;
+
+  // Handle seeking to a new position
+  const seekToPosition = useCallback(
+    async (position: number) => {
+      // Use callback if provided, otherwise use player API
+      if (onSeek) {
+        onSeek(position);
+        return;
+      }
+
+      // Otherwise use the player API directly (production environment)
+      if (!playerRef?.current) return;
+
+      try {
+        // Immediately update both API and SDK states to reflect the new position
+        // This ensures the UI updates immediately without waiting for callbacks
+        if (apiState && setApiState) {
+          setApiState(prevState => {
+            if (prevState === null) return null;
+            return {
+              ...prevState,
+              progress_ms: position,
+            };
+          });
+        }
+
+        // Also update the SDK state if available to ensure perfect synchronization
+        if (sdkState && setSdkState) {
+          setSdkState(prevState => {
+            if (prevState === null) return null;
+            return {
+              ...prevState,
+              position: position,
+            };
+          });
+        }
+
+        // Use the Web SDK player's seek method
+        await playerRef.current.seek(position);
+
+        // The player_state_changed event will automatically update the UI when ready
+      } catch (error) {
+        console.error('Error seeking to position:', error);
+      }
+    },
+    [onSeek, playerRef, apiState, setApiState, sdkState, setSdkState]
+  );
 
   // Handle animation frame updates for smooth progress bar movement
   const updateProgressBar = useCallback(() => {
@@ -130,7 +193,7 @@ function TrackProgress({ position, duration, isPaused, onSeek }: TrackProgressPr
 
     const newPosition = calculatePositionFromMouse(e, progressBarRef.current, duration);
     setDisplayPosition(newPosition);
-    onSeek(newPosition);
+    seekToPosition(newPosition);
     justSeekedRef.current = true;
   }
 
@@ -148,7 +211,7 @@ function TrackProgress({ position, duration, isPaused, onSeek }: TrackProgressPr
   // Handle drag end
   function handleDragEnd() {
     if (isDragging) {
-      onSeek(displayPosition);
+      seekToPosition(displayPosition);
       setIsDragging(false);
       justSeekedRef.current = true;
 
@@ -179,7 +242,7 @@ function TrackProgress({ position, duration, isPaused, onSeek }: TrackProgressPr
     }
 
     function handleMouseUp() {
-      onSeek(displayPosition);
+      seekToPosition(displayPosition);
       setIsDragging(false);
       justSeekedRef.current = true;
 
@@ -197,7 +260,7 @@ function TrackProgress({ position, duration, isPaused, onSeek }: TrackProgressPr
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, duration, displayPosition, onSeek, isPaused, updateProgressBar]);
+  }, [isDragging, duration, displayPosition, isPaused, updateProgressBar, seekToPosition]);
 
   // Clean up animation frame on unmount
   useEffect(() => {

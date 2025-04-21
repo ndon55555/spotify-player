@@ -3,14 +3,43 @@ import './VolumeControl.css';
 
 interface VolumeControlProps {
   volume: number;
-  onVolumeChange: (volume: number) => void;
+  setVolume?: React.Dispatch<React.SetStateAction<number>>;
+  playerRef?: React.RefObject<Spotify.Player | null>;
+  volumeRef?: React.RefObject<number>;
+  onVolumeChange?: (volume: number) => void;
 }
 
 /**
  * VolumeControl component displays a volume slider with an icon
  * It allows users to adjust the playback volume
+ * Contains both UI rendering and volume control logic
  */
-const VolumeControl: React.FC<VolumeControlProps> = ({ volume, onVolumeChange }) => {
+const VolumeControl: React.FC<VolumeControlProps> = ({
+  volume,
+  setVolume,
+  playerRef,
+  volumeRef,
+  onVolumeChange,
+}) => {
+  // Handle volume change
+  async function handleVolumeChange(newVolume: number) {
+    // Use callback if provided, otherwise use player API
+    if (onVolumeChange) {
+      onVolumeChange(newVolume);
+      return;
+    }
+    if (!playerRef?.current || !setVolume) return;
+
+    // Update both state and ref
+    setVolume(newVolume);
+    if (volumeRef) {
+      volumeRef.current = newVolume;
+    }
+
+    // Set volume on the player
+    await playerRef.current.setVolume(newVolume / 100);
+  }
+
   return (
     <div className="volume-control">
       <svg
@@ -32,7 +61,7 @@ const VolumeControl: React.FC<VolumeControlProps> = ({ volume, onVolumeChange })
         min="0"
         max="100"
         value={volume}
-        onChange={e => onVolumeChange(Number(e.target.value))}
+        onChange={e => handleVolumeChange(Number(e.target.value))}
         className="volume-slider"
       />
     </div>
